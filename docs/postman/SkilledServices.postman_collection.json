@@ -1,0 +1,129 @@
+{
+  "info": {
+    "_postman_id": "7e0485c4-e2ab-4d06-bf39-00f4dca00392",
+    "name": "Skilled Services API - Milestones 1-4",
+    "description": "Import with the local environment template. Run Health, then the Auth folders in order. Registration pre-request scripts generate disposable emails. Set admin credentials/IDs manually where a preceding request cannot discover them. No Booking, proposal acceptance, or Google OAuth APIs exist.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health",
+      "item": [
+        { "name": "API health", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/health" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('200 and UP', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().status).to.eql('UP'); });"] } }] },
+        { "name": "Actuator health", "request": { "method": "GET", "url": "{{baseUrl}}/actuator/health" } }
+      ]
+    },
+    {
+      "name": "2. Auth - Customer",
+      "item": [
+        {
+          "name": "Register disposable customer",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": ["if (!pm.environment.get('customerEmail')) { pm.environment.set('customerEmail', `customer-${Date.now()}-${Math.floor(Math.random()*10000)}@example.test`); }"] } },
+            { "listen": "test", "script": { "exec": ["pm.test('customer registered', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.environment.set('customerAccessToken', body.accessToken);", "pm.environment.set('customerRefreshToken', body.refreshToken);", "pm.environment.set('customerId', body.user.id);"] } }
+          ],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}" }, "url": "{{baseUrl}}/api/v1/auth/register/customers" }
+        },
+        { "name": "Customer login", "event": [{ "listen": "test", "script": { "exec": ["pm.test('login succeeds', () => pm.response.to.have.status(200));", "const body = pm.response.json(); pm.environment.set('customerAccessToken', body.accessToken); pm.environment.set('customerRefreshToken', body.refreshToken);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}" }, "url": "{{baseUrl}}/api/v1/auth/login" } },
+        { "name": "Customer me", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me" } },
+        { "name": "Rotate customer refresh token", "event": [{ "listen": "test", "script": { "exec": ["pm.test('refresh succeeds', () => pm.response.to.have.status(200));", "const body = pm.response.json(); pm.environment.set('customerAccessToken', body.accessToken); pm.environment.set('customerRefreshToken', body.refreshToken);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"refreshToken\": \"{{customerRefreshToken}}\" }" }, "url": "{{baseUrl}}/api/v1/auth/refresh" } },
+        { "name": "Customer logout (run last)", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/auth/logout" } }
+      ]
+    },
+    {
+      "name": "3. Auth - Provider",
+      "item": [
+        {
+          "name": "Register disposable provider",
+          "event": [
+            { "listen": "prerequest", "script": { "exec": ["if (!pm.environment.get('providerEmail')) { pm.environment.set('providerEmail', `provider-${Date.now()}-${Math.floor(Math.random()*10000)}@example.test`); }"] } },
+            { "listen": "test", "script": { "exec": ["pm.test('provider registered', () => pm.response.to.have.status(201));", "const body = pm.response.json(); pm.environment.set('providerAccessToken', body.accessToken); pm.environment.set('providerRefreshToken', body.refreshToken); pm.environment.set('providerId', body.user.id);"] } }
+          ],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{providerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}" }, "url": "{{baseUrl}}/api/v1/auth/register/service-providers" }
+        },
+        { "name": "Provider login", "event": [{ "listen": "test", "script": { "exec": ["pm.test('login succeeds', () => pm.response.to.have.status(200));", "const body = pm.response.json(); pm.environment.set('providerAccessToken', body.accessToken); pm.environment.set('providerRefreshToken', body.refreshToken);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{providerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}" }, "url": "{{baseUrl}}/api/v1/auth/login" } },
+        { "name": "Provider me", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me" } },
+        { "name": "Provider logout (run last)", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/auth/logout" } }
+      ]
+    },
+    {
+      "name": "4. Profiles",
+      "item": [
+        { "name": "Customer onboarding", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/onboarding" } },
+        { "name": "Customer profile", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/profile" } },
+        { "name": "Provider onboarding", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/onboarding" } },
+        { "name": "Provider availability", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/availability" } }
+      ]
+    },
+    {
+      "name": "5. Verification",
+      "item": [
+        { "name": "Customer verification state", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/verification" } },
+        { "name": "Provider verification state", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/verification" } }
+      ]
+    },
+    {
+      "name": "6. Admin",
+      "description": "Enable the documented local admin bootstrap, then set adminEmail/adminPassword. Never commit credentials.",
+      "item": [
+        { "name": "Admin login", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) pm.environment.set('adminAccessToken', pm.response.json().accessToken);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"email\": \"{{adminEmail}}\", \"password\": \"{{adminPassword}}\" }" }, "url": "{{baseUrl}}/api/v1/auth/login" } },
+        { "name": "List verification queue", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/verifications?page=0&size=20" } }
+      ]
+    },
+    {
+      "name": "7. Categories",
+      "item": [
+        { "name": "Browse active categories", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200 && pm.response.json().length) pm.environment.set('categoryId', pm.response.json()[0].id);"] } }], "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/categories" } },
+        { "name": "Provider category selection", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/categories" } },
+        { "name": "Admin categories", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/categories" } }
+      ]
+    },
+    {
+      "name": "8. Discovery",
+      "item": [
+        { "name": "Search approved providers", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/providers?page=0&size=20" } },
+        { "name": "Provider public detail", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/providers/{{providerId}}" } },
+        { "name": "Compare providers", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/providers/compare?ids={{providerId}},{{secondProviderId}}" } }
+      ]
+    },
+    {
+      "name": "9. Requests",
+      "item": [
+        { "name": "List my requests", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests?page=0&size=20" } },
+        { "name": "Get my request", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests/{{requestId}}" } },
+        { "name": "Request publication", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests/{{requestId}}/request-publication" } }
+      ]
+    },
+    {
+      "name": "10. Invitations",
+      "item": [
+        { "name": "List provider invitations", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/invitations?page=0&size=20" } },
+        { "name": "Accept invitation", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/invitations/{{invitationId}}/accept" } },
+        { "name": "Decline invitation", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/invitations/{{invitationId}}/decline" } }
+      ]
+    },
+    {
+      "name": "11. Posting Fee",
+      "item": [
+        { "name": "Posting Fee status", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests/{{requestId}}/posting-fee" } },
+        { "name": "Initiate Posting Fee", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests/{{requestId}}/posting-fee/payments" } }
+      ]
+    },
+    {
+      "name": "12. Provider Jobs",
+      "item": [
+        { "name": "List open jobs", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/jobs?page=0&size=20" } },
+        { "name": "Get open job", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/jobs/{{requestId}}" } }
+      ]
+    },
+    {
+      "name": "13. Proposals",
+      "item": [
+        { "name": "Submit proposal", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"proposedPrice\": 1500.00,\n  \"expectedTimeline\": \"2 days\",\n  \"providerMessage\": \"Available for this work.\",\n  \"conditions\": null\n}" }, "url": "{{baseUrl}}/api/v1/providers/me/requests/{{requestId}}/proposals" } },
+        { "name": "Customer list proposals", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/requests/{{requestId}}/proposals" } },
+        { "name": "Provider withdraw proposal", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/proposals/{{proposalId}}/withdraw" } },
+        { "name": "Customer reject proposal", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/proposals/{{proposalId}}/reject" } }
+      ]
+    }
+  ]
+}

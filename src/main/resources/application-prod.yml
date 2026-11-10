@@ -1,0 +1,28 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+platform:
+  security:
+    jwt-secret-base64: ${JWT_SECRET_BASE64}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  protected-storage:
+    local-root: ${PROTECTED_STORAGE_ROOT}
+  posting-fee:
+    amount: ${POSTING_FEE_AMOUNT}
+    currency: ${POSTING_FEE_CURRENCY:ETB}
+    provider: ${POSTING_FEE_PROVIDER}
+  dev-admin:
+    enabled: false

@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: skilled-services-platform
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/skilled_services}
+    username: ${DB_USERNAME:skilled_services}
+    password: ${DB_PASSWORD:local_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+  mvc:
+    problemdetails:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${VERIFICATION_MAX_FILE_SIZE:10MB}
+      max-request-size: ${VERIFICATION_MAX_REQUEST_SIZE:30MB}
+
+server:
+  forward-headers-strategy: framework
+  shutdown: graceful
+  error:
+    include-exception: false
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  writer-with-order-by-keys: true
+
+platform:
+  security:
+    issuer: skilled-services-platform
+    access-token-ttl: PT15M
+    refresh-token-ttl: P30D
+    jwt-secret-base64: ${JWT_SECRET_BASE64:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
+  protected-storage:
+    local-root: ${PROTECTED_STORAGE_ROOT:./data/protected}
+    max-file-size-bytes: ${VERIFICATION_MAX_FILE_SIZE_BYTES:10485760}
+    allowed-content-types: ${VERIFICATION_ALLOWED_CONTENT_TYPES:application/pdf,image/jpeg,image/png}
+  posting-fee:
+    amount: ${POSTING_FEE_AMOUNT:150.00}
+    currency: ${POSTING_FEE_CURRENCY:ETB}
+    provider: ${POSTING_FEE_PROVIDER:unavailable}
+    local-test-webhook-secret: ${LOCAL_TEST_PAYMENT_WEBHOOK_SECRET:}
+  dev-admin:
+    enabled: ${DEV_ADMIN_ENABLED:false}
+    email: ${DEV_ADMIN_EMAIL:}
+    password: ${DEV_ADMIN_PASSWORD:}
