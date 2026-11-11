@@ -19,7 +19,7 @@ data class Account(
     val id: UUID,
     val email: String,
     val phone: String?,
-    val passwordHash: String,
+    val passwordHash: String?,
     val status: AccountStatus,
     val roles: Set<AccountRole>,
     val emailVerified: Boolean,
@@ -27,6 +27,18 @@ data class Account(
     val credentialVersion: Int,
     val createdAt: Instant,
     val updatedAt: Instant,
+)
+
+enum class ExternalIdentityProvider { GOOGLE }
+
+data class ExternalIdentity(
+    val id: UUID,
+    val accountId: UUID,
+    val provider: ExternalIdentityProvider,
+    val providerSubject: String,
+    val verifiedEmail: String,
+    val createdAt: Instant,
+    val lastLoginAt: Instant,
 )
 
 

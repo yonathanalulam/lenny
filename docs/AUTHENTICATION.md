@@ -1,8 +1,6 @@
 # Authentication
 
-The backend currently supports native email/password authentication with JWT access tokens and opaque, server-side refresh sessions.
-
-**Google Sign-In: Not implemented.** There is no Google or other OAuth endpoint. OAuth may be evaluated as a future enhancement.
+The backend supports native email/password authentication and Google ID-token exchange. Both paths issue the same platform JWT access token and opaque, server-side refresh session. Google tokens are never accepted as API bearer tokens.
 
 ## Endpoints
 
@@ -11,11 +9,21 @@ The backend currently supports native email/password authentication with JWT acc
 | `POST` | `/api/v1/auth/register/customers` | Public | Create a `CUSTOMER` account and session |
 | `POST` | `/api/v1/auth/register/service-providers` | Public | Create a `SERVICE_PROVIDER` account and session |
 | `POST` | `/api/v1/auth/login` | Public | Create a session using email and password |
+| `POST` | `/api/v1/auth/google` | Public | Verify a Google ID token, resolve/register an account, and create a platform session |
 | `POST` | `/api/v1/auth/refresh` | Public, refresh token in body | Rotate a refresh session and issue new tokens |
 | `POST` | `/api/v1/auth/logout` | Bearer JWT | Revoke the access token's current refresh session |
 | `GET` | `/api/v1/me` | Bearer JWT | Return the authenticated account |
+| `POST` | `/api/v1/me/auth-identities/google` | Bearer JWT | Explicitly link Google to the authenticated account |
 
 There is no public administrator-registration endpoint and registration requests contain no role field. Unknown JSON properties cannot grant roles.
+
+## Continue with Google
+
+Web, Android, or iOS authenticates with Google client-side and sends the resulting **ID token** to `POST /api/v1/auth/google`. The backend verifies signature, issuer, expiry, configured audience and `email_verified`, then returns the normal `AuthResponse`. Clients must use the returned platform access token for subsequent API calls.
+
+For a new identity, `requestedRole` must be `CUSTOMER` or `SERVICE_PROVIDER`; `ADMIN` is never allowed. Google-only accounts have no password hash, so password login fails with the same generic invalid-credentials response. Google email verification sets only `emailVerified`; it does not verify a phone or approve marketplace participation.
+
+If the verified email already belongs to a native account, implicit merging is refused with `identity.google_account_link_required`. After native login, link explicitly through `/api/v1/me/auth-identities/google`. Linking requires the Google verified email to match the platform email and cannot change roles.
 
 ## Register
 
@@ -132,3 +140,5 @@ $env:JWT_SECRET_BASE64 = [Convert]::ToBase64String($bytes)
 ```
 
 Never commit JWT keys, passwords, access tokens, refresh tokens, or payment webhook secrets.
+
+`GOOGLE_ALLOWED_CLIENT_IDS` is an optional comma-separated allowlist for web, Android and iOS OAuth client IDs. When blank, native authentication remains available and the Google endpoint returns `identity.google_auth_unavailable`.

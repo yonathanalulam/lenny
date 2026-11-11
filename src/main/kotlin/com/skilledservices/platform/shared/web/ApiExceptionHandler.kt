@@ -5,6 +5,7 @@ import com.skilledservices.platform.identity.domain.IdentityException
 import com.skilledservices.platform.identity.domain.InactiveAccountException
 import com.skilledservices.platform.identity.domain.InvalidCredentialsException
 import com.skilledservices.platform.identity.domain.InvalidRefreshTokenException
+import com.skilledservices.platform.identity.domain.*
 import jakarta.servlet.http.HttpServletRequest
 import com.skilledservices.platform.profiles.domain.ForbiddenVerificationAccessException
 import com.skilledservices.platform.profiles.domain.InvalidVerificationTransitionException
@@ -76,6 +77,11 @@ class ApiExceptionHandler {
     fun identity(exception: IdentityException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         val status = when (exception) {
             is DuplicateContactException -> HttpStatus.CONFLICT
+            is GoogleAuthUnavailableException -> HttpStatus.SERVICE_UNAVAILABLE
+            is GoogleAccountLinkRequiredException, is GoogleIdentityAlreadyLinkedException -> HttpStatus.CONFLICT
+            is GoogleRegistrationRoleRequiredException, is GoogleIdentityEmailMismatchException -> HttpStatus.BAD_REQUEST
+            is GoogleTokenInvalidException, is GoogleTokenExpiredException, is GoogleAudienceInvalidException,
+            is GoogleEmailNotVerifiedException -> HttpStatus.UNAUTHORIZED
             is InvalidCredentialsException, is InvalidRefreshTokenException, is InactiveAccountException -> HttpStatus.UNAUTHORIZED
             else -> HttpStatus.NOT_FOUND
         }

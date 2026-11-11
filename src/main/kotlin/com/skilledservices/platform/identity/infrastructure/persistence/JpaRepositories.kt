@@ -15,6 +15,11 @@ interface AccountJpaRepository : JpaRepository<AccountEntity, UUID> {
     fun findByEmail(email: String): AccountEntity?
 }
 
+interface ExternalIdentityJpaRepository : JpaRepository<ExternalIdentityEntity, UUID> {
+    fun findByProviderAndProviderSubject(provider: com.skilledservices.platform.identity.domain.ExternalIdentityProvider, providerSubject: String): ExternalIdentityEntity?
+    fun findByAccountIdAndProvider(accountId: UUID, provider: com.skilledservices.platform.identity.domain.ExternalIdentityProvider): ExternalIdentityEntity?
+}
+
 interface RefreshSessionJpaRepository : JpaRepository<RefreshSessionEntity, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from RefreshSessionEntity s where s.id = :id")

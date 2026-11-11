@@ -37,6 +37,7 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 2. Profiles, availability, onboarding, verification/admin review and marketplace eligibility.
 3. Categories, approved-provider discovery/comparison, requests, invitations, drafts and attachments.
 4. Verified Posting Fee publication, provider job feed, invitation responses and proposal submission/review/rejection/withdrawal.
+4.5. Google ID-token verification, explicit account linking, Google-only accounts, and platform JWT/session issuance.
 
 ## Not implemented
 
@@ -47,7 +48,6 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 - Support cases
 - AI category suggestion
 - Final reporting/admin dashboards
-- Google Sign-In/OAuth
 - A real production payment gateway
 
 The next milestone is **Milestone 5 — Transactional Proposal Acceptance + Booking Confirmation**.

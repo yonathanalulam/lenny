@@ -20,11 +20,13 @@ Protected calls use `Authorization: Bearer <access-token>`. `C` means `CUSTOMER`
 | `POST /api/v1/auth/register/customers` | Public | Register native account from `email`, optional `phone`, `password`; returns access/refresh tokens and `user`. | Assigns only `CUSTOMER`; 400 validation, 409 `identity.contact_already_registered`. |
 | `POST /api/v1/auth/register/service-providers` | Public | Same registration contract; creates provider identity and returns session. | Assigns only `SERVICE_PROVIDER`; 400 validation, 409 duplicate contact. |
 | `POST /api/v1/auth/login` | Public | `email`, `password`; returns token pair and account. | Account must be active; 401 invalid credentials/account inactive. |
+| `POST /api/v1/auth/google` | Public | Google `idToken`, optional first-registration `requestedRole` and `phone`; returns the platform token pair. | Validates Google issuer/signature/expiry/audience/email; existing-email collision requires explicit linking. |
 | `POST /api/v1/auth/refresh` | Refresh token | `refreshToken`; atomically rotates session and returns a new token pair. | Token is one-use; 401 `identity.invalid_refresh_token` for expired/revoked/reused tokens. |
 | `POST /api/v1/auth/logout` | Bearer, any role | Revokes the refresh session identified by the JWT; no body, 204 response. | A revoked refresh token cannot rotate again. |
 | `GET /api/v1/me` | Bearer, any role | Returns authenticated account identity, contact verification, roles and marketplace-verification state. | Subject always comes from JWT; never returns password/token hashes. |
+| `POST /api/v1/me/auth-identities/google` | Bearer, any role | Link a verified matching-email Google identity to the current account. | 400 email mismatch; 409 identity already linked. |
 
-See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google Sign-In/OAuth is not implemented.
+See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google is an identity provider only; the platform session remains authoritative.
 
 ## Customer profile and onboarding
 
@@ -128,4 +130,4 @@ Successful verified callbacks atomically mark payment paid and publish the job `
 
 ## Explicitly absent
 
-There is no proposal-accept endpoint, Booking endpoint/lifecycle, Google Sign-In/OAuth endpoint, messaging, notification, rating/review, support, escrow, or service-payment API in Milestones 1–4.
+There is no proposal-accept endpoint, Booking endpoint/lifecycle, messaging, notification, rating/review, support, escrow, or service-payment API at the Milestone 4.5 checkpoint.

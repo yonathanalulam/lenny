@@ -238,3 +238,6 @@ One Proposal is permitted per provider/request. A `PENDING` Proposal may become 
 **Final Proposal acceptance is intentionally not exposed until Booking confirmation is implemented.** There is no accept endpoint. Although `ACCEPTED` exists in the enum for the approved future model, Milestone 4 cannot set it and cannot set a request to `PROVIDER_SELECTED`.
 
 Additional stable errors include `POSTING_FEE_NOT_REQUIRED`, `POSTING_FEE_ALREADY_PAID`, `PAYMENT_PROVIDER_UNAVAILABLE`, `PAYMENT_INITIATION_FAILED`, `PAYMENT_VERIFICATION_FAILED`, `PAYMENT_AMOUNT_MISMATCH`, `PAYMENT_CALLBACK_INVALID`, `JOB_NOT_OPEN`, `JOB_NOT_ELIGIBLE`, `INVITATION_NOT_PENDING`, `INVITATION_NOT_OWNED`, `PROPOSAL_ALREADY_EXISTS`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_NOT_PENDING`, and `PROPOSAL_NOT_OWNED`.
+# Google authentication
+
+Web/mobile obtains a Google **ID token** from the Google client SDK and sends it to `POST /api/v1/auth/google`. The response is the same platform access/refresh pair used by native login. Never use the Google token as `Authorization: Bearer` for platform endpoints. First-time users supply `requestedRole` (`CUSTOMER` or `SERVICE_PROVIDER`); marketplace verification remains `PENDING`. Existing native-email collisions must log in natively and call `POST /api/v1/me/auth-identities/google` to link explicitly.

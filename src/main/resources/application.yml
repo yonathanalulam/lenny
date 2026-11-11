@@ -72,3 +72,5 @@ platform:
     enabled: ${DEV_ADMIN_ENABLED:false}
     email: ${DEV_ADMIN_EMAIL:}
     password: ${DEV_ADMIN_PASSWORD:}
+  google-auth:
+    allowed-client-ids: ${GOOGLE_ALLOWED_CLIENT_IDS:}

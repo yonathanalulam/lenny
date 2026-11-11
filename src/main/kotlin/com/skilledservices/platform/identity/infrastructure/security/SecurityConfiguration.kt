@@ -45,7 +45,7 @@ class SecurityConfiguration(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
                 it.requestMatchers(HttpMethod.POST, "/api/v1/auth/register/**").permitAll()
-                it.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/google").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/api/v1/health", "/actuator/health/**").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/api/v1/payment-webhooks/**").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/api/v1/categories/**", "/api/v1/providers", "/api/v1/providers/**").permitAll()

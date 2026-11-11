@@ -3,6 +3,8 @@ package com.skilledservices.platform.identity
 import com.skilledservices.platform.identity.application.AuthService
 import com.skilledservices.platform.identity.application.ClientContext
 import com.skilledservices.platform.identity.application.RegistrationCommand
+import com.skilledservices.platform.identity.application.GoogleIdentityVerifier
+import com.skilledservices.platform.identity.application.VerifiedGoogleIdentity
 import com.skilledservices.platform.identity.domain.AccessTokenPort
 import com.skilledservices.platform.identity.domain.Account
 import com.skilledservices.platform.identity.domain.AccountRole
@@ -13,6 +15,9 @@ import com.skilledservices.platform.identity.domain.PasswordHashPort
 import com.skilledservices.platform.identity.domain.RefreshSession
 import com.skilledservices.platform.identity.domain.RefreshSessionStore
 import com.skilledservices.platform.identity.domain.SessionPolicy
+import com.skilledservices.platform.identity.domain.ExternalIdentity
+import com.skilledservices.platform.identity.domain.ExternalIdentityProvider
+import com.skilledservices.platform.identity.domain.ExternalIdentityStore
 import com.skilledservices.platform.profiles.application.VerificationRegistrationPort
 import com.skilledservices.platform.profiles.domain.MarketplaceSubjectType
 import com.skilledservices.platform.profiles.domain.MarketplaceVerification
@@ -37,6 +42,8 @@ class AuthServiceTest {
         accountStore = accounts,
         verificationTrustService = verifications,
         refreshSessionStore = sessions,
+        externalIdentityStore = InMemoryExternalIdentityStore(),
+        googleIdentityVerifier = GoogleIdentityVerifier { VerifiedGoogleIdentity("unused", "unused@example.test") },
         passwordHashPort = PrefixPasswordHasher,
         accessTokenPort = AccessTokenPort { _, sessionId, issuedAt ->
             IssuedAccessToken("access-$sessionId", issuedAt.plusSeconds(900))
@@ -71,6 +78,13 @@ class AuthServiceTest {
             service.refresh(registered.refreshToken, ClientContext(null, null))
         }
     }
+}
+
+private class InMemoryExternalIdentityStore : ExternalIdentityStore {
+    private val values = linkedMapOf<UUID, ExternalIdentity>()
+    override fun findByProviderAndSubject(provider: ExternalIdentityProvider, subject: String) = values.values.firstOrNull { it.provider == provider && it.providerSubject == subject }
+    override fun findByAccountAndProvider(accountId: UUID, provider: ExternalIdentityProvider) = values.values.firstOrNull { it.accountId == accountId && it.provider == provider }
+    override fun save(identity: ExternalIdentity) = identity.also { values[it.id] = it }
 }
 
 private class InMemoryAccountStore : AccountStore {

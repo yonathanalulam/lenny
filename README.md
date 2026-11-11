@@ -2,7 +2,7 @@
 
 Deployable Kotlin/Spring Boot backend for an Addis Ababa home-services marketplace. One modular-monolith REST API and one PostgreSQL database serve web, mobile, and future admin clients.
 
-This checkpoint completes Milestones 1–4: native authentication, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, provider jobs, and proposals through rejection/withdrawal. **Booking and final proposal acceptance are intentionally not implemented. Google Sign-In/OAuth is not implemented.**
+This branch completes Milestones 1–4 plus Milestone 4.5 Google authentication: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, provider jobs, and proposals through rejection/withdrawal. **Booking and final proposal acceptance are not yet implemented.**
 
 ## Stack and architecture
 
