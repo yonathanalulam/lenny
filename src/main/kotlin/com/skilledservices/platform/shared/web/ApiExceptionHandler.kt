@@ -21,6 +21,7 @@ import com.skilledservices.platform.marketplace.domain.CategoryNotFoundException
 import com.skilledservices.platform.marketplace.domain.MarketplaceException
 import com.skilledservices.platform.marketplace.domain.ProviderNotPublicException
 import com.skilledservices.platform.requests.domain.*
+import com.skilledservices.platform.booking.domain.*
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -133,6 +134,19 @@ class ApiExceptionHandler {
             is PaymentCallbackInvalidException -> HttpStatus.UNAUTHORIZED
             is UnsupportedRequestAttachmentTypeException -> HttpStatus.UNSUPPORTED_MEDIA_TYPE
             is RequestAttachmentTooLargeException -> HttpStatus.PAYLOAD_TOO_LARGE
+            else -> HttpStatus.BAD_REQUEST
+        }
+        return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)
+    }
+
+    @ExceptionHandler(BookingException::class)
+    fun booking(exception: BookingException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        val status = when (exception) {
+            is BookingNotFoundException -> HttpStatus.NOT_FOUND
+            is BookingNotOwnedException -> HttpStatus.FORBIDDEN
+            is BookingScheduleInvalidException -> HttpStatus.BAD_REQUEST
+            is ProviderNotAvailableException, is BookingScheduleConflictException,
+            is RequestAlreadyHasBookingException, is ProposalNotAcceptableException -> HttpStatus.CONFLICT
             else -> HttpStatus.BAD_REQUEST
         }
         return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)

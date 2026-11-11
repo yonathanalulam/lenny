@@ -14,7 +14,13 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
+import jakarta.persistence.LockModeType
 import org.springframework.stereotype.Repository
 import java.time.DayOfWeek
 import java.time.Instant
@@ -37,20 +43,27 @@ class AvailabilityRangeEntity(
     @Id var id: UUID,
     @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week", nullable = false, length = 16) var dayOfWeek: DayOfWeek,
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME)
     @Column(name = "start_time", nullable = false) var startTime: LocalTime,
+    @JdbcTypeCode(SqlTypes.LOCAL_TIME)
     @Column(name = "end_time", nullable = false) var endTime: LocalTime,
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "provider_id", nullable = false)
     var availability: ProviderAvailabilityEntity,
 )
 
-interface ProviderAvailabilityJpaRepository : JpaRepository<ProviderAvailabilityEntity, UUID>
+interface ProviderAvailabilityJpaRepository : JpaRepository<ProviderAvailabilityEntity, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from ProviderAvailabilityEntity a where a.providerId = :providerId")
+    fun findByProviderIdForUpdate(@Param("providerId") providerId: UUID): ProviderAvailabilityEntity?
+}
 
 @Repository
 class JpaProviderAvailabilityStore(
     private val repository: ProviderAvailabilityJpaRepository,
 ) : ProviderAvailabilityStore {
     override fun findByProviderId(providerId: UUID) = repository.findById(providerId).orElse(null)?.toDomain()
+    override fun findByProviderIdForUpdate(providerId: UUID) = repository.findByProviderIdForUpdate(providerId)?.toDomain()
     override fun save(availability: ProviderAvailability) = repository.save(availability.toEntity()).toDomain()
 }
 

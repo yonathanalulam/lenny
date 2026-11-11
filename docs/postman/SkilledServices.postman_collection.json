@@ -126,6 +126,16 @@
         { "name": "Provider withdraw proposal", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/proposals/{{proposalId}}/withdraw" } },
         { "name": "Customer reject proposal", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/proposals/{{proposalId}}/reject" } }
       ]
+    },
+    {
+      "name": "14. Bookings",
+      "item": [
+        { "name": "Customer accept proposal and confirm booking", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) { pm.environment.set('bookingId', pm.response.json().id); }"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"scheduledStart\": \"2026-11-20T09:00:00+03:00\",\n  \"scheduledEnd\": \"2026-11-20T11:00:00+03:00\"\n}" }, "url": "{{baseUrl}}/api/v1/customers/me/proposals/{{proposalId}}/accept" } },
+        { "name": "Customer list bookings", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/bookings?page=0&size=20" } },
+        { "name": "Customer booking detail", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/bookings/{{bookingId}}" } },
+        { "name": "Provider list bookings", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/bookings?page=0&size=20" } },
+        { "name": "Provider booking detail", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/providers/me/bookings/{{bookingId}}" } }
+      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-# API reference — Milestones 1–4
+# API reference — Milestones 1–5
 
 This is the human-readable companion to [`openapi.json`](openapi.json). The generated OpenAPI document and controller code remain the schema-level authority. All paths are relative to the API host (locally `http://localhost:8080`).
 
@@ -126,8 +126,20 @@ Successful verified callbacks atomically mark payment paid and publish the job `
 | `POST /api/v1/providers/me/proposals/{proposalId}/withdraw` | P | Withdraw caller's pending proposal. | 403 owner, 404 absent, 409 non-pending. |
 | `GET /api/v1/customers/me/requests/{requestId}/proposals` | C | List proposals for caller-owned request. | Owner only; exposes proposal/provider public data, not credentials. |
 | `GET /api/v1/customers/me/proposals/{proposalId}` | C | Detail for proposal on caller-owned request. | 403 owner; 404 absent. |
-| `POST /api/v1/customers/me/proposals/{proposalId}/reject` | C | Reject a pending proposal; returns updated proposal. | 409 non-pending. Final acceptance is deliberately unavailable. |
+| `POST /api/v1/customers/me/proposals/{proposalId}/reject` | C | Reject a pending proposal; returns updated proposal. | 409 non-pending. |
+
+## Booking confirmation and participant access
+
+| Method and path | Auth | Purpose and principal fields | Important state/errors |
+| --- | --- | --- | --- |
+| `POST /api/v1/customers/me/proposals/{proposalId}/accept` | C | Supply offset-aware `scheduledStart` and `scheduledEnd`; atomically accepts the Proposal and returns the confirmed customer Booking DTO. | Rechecks ownership, account/marketplace eligibility, category relationship, weekly availability, and conflicts. Errors include `PROPOSAL_NOT_ACCEPTABLE`, `REQUEST_ALREADY_HAS_BOOKING`, `BOOKING_SCHEDULE_INVALID`, `PROVIDER_NOT_AVAILABLE`, and `BOOKING_SCHEDULE_CONFLICT`. |
+| `GET /api/v1/customers/me/bookings` | C | Page through caller-owned Bookings, newest confirmation first. | `page` is zero-based; `size` is 1–100. |
+| `GET /api/v1/customers/me/bookings/{bookingId}` | C | Retrieve the caller's customer Booking projection. | 404 absent; 403 `BOOKING_NOT_OWNED` for another customer. |
+| `GET /api/v1/providers/me/bookings` | P | Page through Bookings assigned to the caller. | Only the selected provider has rows. |
+| `GET /api/v1/providers/me/bookings/{bookingId}` | P | Selected-provider projection including exact location and customer phone. | Losing/unrelated providers receive 403 `BOOKING_NOT_OWNED`. |
+
+Confirmation is one database transaction: lock Proposal/request/provider schedule, recheck eligibility and weekly availability, detect half-open interval conflicts, insert the `CONFIRMED` Booking, accept the selected Proposal, reject competing pending Proposals, set the request to `PROVIDER_SELECTED`, and record activity. Any failure rolls back every step. The same successful Proposal is idempotent and returns its existing Booking; another Proposal cannot be accepted for that request. Currency is currently the platform's ETB proposal currency.
 
 ## Explicitly absent
 
-There is no proposal-accept endpoint, Booking endpoint/lifecycle, messaging, notification, rating/review, support, escrow, or service-payment API at the Milestone 4.5 checkpoint.
+There is no Booking start/completion/cancellation lifecycle, messaging, notification, rating/review, support, escrow, or service-payment API at the Milestone 5 checkpoint.

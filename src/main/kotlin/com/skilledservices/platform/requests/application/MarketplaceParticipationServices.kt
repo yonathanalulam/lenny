@@ -127,7 +127,7 @@ class ProposalService(
     @Transactional
     fun submit(providerId: UUID, requestId: UUID, command: SubmitProposalCommand): Proposal {
         providerEligibility.requireMarketplace(providerId)
-        val request = requests.findById(requestId) ?: throw RequestNotFoundException()
+        val request = requests.findByIdForUpdate(requestId) ?: throw RequestNotFoundException()
         if (request.status != ServiceRequestStatus.OPEN) throw JobNotOpenException()
         when (request.type) {
             ServiceRequestType.DIRECT_INVITATION -> {

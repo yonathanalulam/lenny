@@ -2,12 +2,12 @@
 
 Deployable Kotlin/Spring Boot backend for an Addis Ababa home-services marketplace. One modular-monolith REST API and one PostgreSQL database serve web, mobile, and future admin clients.
 
-This branch completes Milestones 1–4 plus Milestone 4.5 Google authentication: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, provider jobs, and proposals through rejection/withdrawal. **Booking and final proposal acceptance are not yet implemented.**
+This branch completes Milestones 1–5: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, proposals, and transactional Booking confirmation. Booking confirmation atomically accepts exactly one Proposal, reserves the provider interval, closes competing Proposals, and selects the provider on the request.
 
 ## Stack and architecture
 
 - Kotlin, Java 21 toolchain, Spring Boot 4.1.2, MVC, Security and Data JPA
-- PostgreSQL 17, Flyway V1–V5, Testcontainers
+- PostgreSQL 17, Flyway V1–V7, Testcontainers
 - JWT access tokens plus opaque server-side refresh sessions
 - OpenAPI/Swagger, RFC 9457 ProblemDetail responses and correlation IDs
 - Modular-monolith packages with domain/application/API/infrastructure boundaries
@@ -57,4 +57,4 @@ Docker must be running because integration tests use real PostgreSQL rather than
 - [Generated OpenAPI contract](docs/openapi.json)
 - [Postman collection and local environment](docs/postman/SkilledServices.postman_collection.json)
 
-The next planned feature milestone is **Milestone 5 — Transactional Proposal Acceptance + Booking Confirmation**. It is outside this checkpoint.
+The next planned feature milestone is **Milestone 6 — Booking Lifecycle, Completion, Cancellation and History**.

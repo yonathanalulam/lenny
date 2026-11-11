@@ -17,4 +17,7 @@ class IdentityAccountQuery(
 
     @Transactional(readOnly = true)
     fun accountStatus(accountId: UUID): AccountStatus? = accountStore.findById(accountId)?.status
+
+    @Transactional(readOnly = true)
+    fun accountPhone(accountId: UUID): String? = accountStore.findById(accountId)?.phone
 }

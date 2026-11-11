@@ -10,7 +10,7 @@ The platform is one Spring Boot modular monolith. Website, mobile, and administr
 | Profiles, Verification & Trust | `profiles` | Profiles, availability, verification workflow, evidence, and eligibility implemented |
 | Marketplace Discovery | `marketplace` | Categories, provider-category assignments, approved-provider discovery, and comparison implemented |
 | Requests, Invitations, Proposals & Posting Fee | `requests` | Verified Posting Fee publication, provider job feed, invitation responses, and proposal review lifecycle implemented |
-| Booking & Service Lifecycle | `booking` | Boundary reserved |
+| Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, and participant read APIs implemented |
 | Communication & Support | `communication` | Boundary reserved |
 | Administration, Audit & Reporting | `administration` | Boundary reserved |
 | Integration Adapters | `integration` | Boundary reserved |
@@ -30,7 +30,7 @@ Flyway is the only schema writer. Hibernate runs with `ddl-auto=validate` and Op
 ## Profiles, verification, and trust ownership
 
 - `customer_profiles` and `provider_profiles` contain profile-only data. Exact service addresses and account phone numbers are deliberately absent.
-- `provider_availability` and its weekly ranges are reusable inputs for the future Booking module; no reservation/conflict logic exists yet.
+- `provider_availability` and its weekly ranges define base availability. Booking confirmation locks the provider availability row before conflict detection and insertion.
 - `marketplace_verifications` is current state. `verification_submissions`, `verification_evidence`, and `verification_decisions` retain submission and administrative history.
 - `protected_objects` stores internal object references only. Bytes live behind `ProtectedObjectStorage`; the local adapter writes beneath a configured private root. API responses never include storage keys or filesystem paths.
 - Future Requests, Search, and Booking code must call `CustomerEligibilityService` or `ProviderEligibilityService`, not verification repositories.
@@ -42,7 +42,7 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 - `service_categories` supports root categories plus one subcategory level. The uniqueness rule is case-insensitive English name within the same parent; Amharic and English labels share one category ID.
 - `provider_service_categories` retains historical references when a category is deactivated. Inactive categories and their assignments are excluded from new discovery.
 - Marketplace calls `ProviderEligibilityService` for every public candidate and also requires an active Identity account. It reads safe profile and weekly-availability data through `ProviderDiscoveryProfileQuery`; it never reads verification persistence.
-- Public provider DTOs omit credentials, contact data, exact addresses, verification evidence, administrative notes, and storage references. Availability filtering is advisory only; Booking must perform the future authoritative concurrency check.
+- Public provider DTOs omit credentials, contact data, exact addresses, verification evidence, administrative notes, and storage references. Discovery subtracts confirmed Booking conflicts through the Booking-owned `ProviderBookingAvailabilityQuery`; confirmation remains authoritative.
 
 ## Requests and invitations ownership
 
@@ -66,4 +66,12 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 - Provider job and invitation DTOs structurally omit exact location and customer contact data. Explicit request attachments are authorized separately.
 - Invitations support `PENDING`, `ACCEPTED`, `DECLINED`, `WITHDRAWN`, and `EXPIRED`. Acceptance means interest only and creates neither Proposal nor Booking.
 - One proposal record is allowed per provider/request. Milestone 4 permits `PENDING -> REJECTED` or `PENDING -> WITHDRAWN`; `EXPIRED` is representable but automatic timing is deferred.
-- `ACCEPTED` is deliberately representable but unreachable through Milestone 4 APIs. Milestone 5 must combine acceptance, eligibility and availability rechecks, conflict protection, time reservation, remaining-proposal closure, and Booking creation in one transaction.
+- `ACCEPTED` is reachable only through Booking confirmation. The acceptance transaction locks Proposal, request, and provider schedule state; rechecks both participants and availability; inserts one Booking; accepts the selected Proposal; rejects competing pending Proposals; and sets the request to `PROVIDER_SELECTED`. Any failure rolls back the complete operation.
+
+## Booking confirmation and schedule ownership
+
+- `bookings` is the authoritative provider-time reservation; no duplicate reservation table exists.
+- Intervals are persisted as `timestamptz`/`Instant` and use half-open overlap semantics: `existingStart < requestedEnd && existingEnd > requestedStart`. Adjacent appointments are allowed.
+- Weekly availability is interpreted in `Africa/Addis_Ababa`. The availability row is pessimistically locked so confirmations for the same provider serialize across application instances.
+- Database uniqueness permits one Booking per request and Proposal and one accepted Proposal per request. Repeating the same successful acceptance returns the existing Booking.
+- Customer and selected-provider DTOs are separate. Only the selected provider can retrieve exact location and customer phone after confirmation.

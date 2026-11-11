@@ -13,7 +13,8 @@ class ArchitectureBoundaryTest {
         val root = Path.of("src", "main", "kotlin", "com", "skilledservices", "platform")
         val marketplaceAndRequests = listOf(root.resolve("marketplace"), root.resolve("requests"))
             .flatMap { directory -> Files.walk(directory).use { paths -> paths.filter { it.extension == "kt" }.toList() } }
-        marketplaceAndRequests.forEach { file ->
+        val bookingFiles = Files.walk(root.resolve("booking")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
+        (marketplaceAndRequests + bookingFiles).forEach { file ->
             val source = Files.readString(file)
             assertFalse(source.contains("profiles.infrastructure.persistence"), "$file must not depend on verification persistence")
             if (file.toString().contains("${java.io.File.separator}api${java.io.File.separator}")) {
@@ -37,7 +38,11 @@ class ArchitectureBoundaryTest {
         assertTrue(paymentDomain.contains("interface PostingFeePaymentGateway"), "Payment gateway must remain a project-owned port")
         val participation = Files.readString(root.resolve("requests/application/MarketplaceParticipationServices.kt"))
         assertTrue(participation.contains("ProviderEligibilityService"), "Provider job feed must use the eligibility boundary")
-        val bookingFiles = Files.walk(root.resolve("booking")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
-        assertTrue(bookingFiles.isEmpty(), "Milestone 4 must not implement Booking")
+        val discovery = Files.readString(root.resolve("marketplace/application/MarketplaceServices.kt"))
+        assertTrue(discovery.contains("ProviderBookingAvailabilityQuery"), "Marketplace discovery must use the Booking-owned availability query")
+        assertFalse(discovery.contains("booking.infrastructure"), "Marketplace discovery must not access Booking persistence")
+        val bookingService = Files.readString(root.resolve("booking/application/BookingServices.kt"))
+        assertTrue(bookingService.contains("CustomerEligibilityService") && bookingService.contains("ProviderEligibilityService"), "Booking must use both eligibility boundaries")
+        assertFalse(bookingService.contains("verification.infrastructure"), "Booking must not access verification persistence")
     }
 }
