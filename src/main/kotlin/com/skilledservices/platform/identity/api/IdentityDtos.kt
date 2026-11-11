@@ -3,6 +3,8 @@ package com.skilledservices.platform.identity.api
 import com.skilledservices.platform.identity.application.AuthResult
 import com.skilledservices.platform.identity.application.CurrentAccountResult
 import com.skilledservices.platform.identity.domain.Account
+import com.skilledservices.platform.identity.domain.AccountRole
+import com.skilledservices.platform.identity.domain.ExternalIdentity
 import com.skilledservices.platform.profiles.domain.MarketplaceVerification
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Email
@@ -46,6 +48,22 @@ data class RefreshRequest(
     @field:Schema(format = "password", description = "Opaque refresh token returned by login or registration")
     val refreshToken: String,
 )
+
+data class GoogleAuthRequest(
+    @field:NotBlank @field:Size(max = 8192) val idToken: String,
+    val requestedRole: AccountRole? = null,
+    @field:Pattern(regexp = "^\\+[1-9][0-9]{7,14}$", message = "must use E.164 format") val phone: String? = null,
+)
+
+data class GoogleLinkRequest(@field:NotBlank @field:Size(max = 8192) val idToken: String)
+
+data class ExternalIdentityResponse(
+    val provider: String,
+    val verifiedEmail: String,
+    val linkedAt: Instant,
+)
+
+internal fun ExternalIdentity.toResponse() = ExternalIdentityResponse(provider.name, verifiedEmail, createdAt)
 
 data class AuthResponse(
     val tokenType: String = "Bearer",

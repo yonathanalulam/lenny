@@ -9,12 +9,14 @@ import com.skilledservices.platform.profiles.application.ProviderDiscoveryProfil
 import com.skilledservices.platform.profiles.application.ProviderEligibilityService
 import com.skilledservices.platform.profiles.domain.AvailabilityRange
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.booking.application.ProviderBookingAvailabilityQuery
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.util.UUID
 
 data class CategoryCommand(val parentId: UUID?, val nameEn: String, val nameAm: String, val description: String?, val active: Boolean)
@@ -117,6 +119,7 @@ class ProviderDiscoveryService(
     private val identity: IdentityAccountQuery,
     private val categoryStore: ServiceCategoryStore,
     private val assignmentStore: ProviderCategoryStore,
+    private val bookingAvailability: ProviderBookingAvailabilityQuery,
 ) {
     @Transactional(readOnly = true)
     fun search(filter: ProviderDiscoveryFilter): PageResponse<PublicProvider> {
@@ -171,8 +174,14 @@ class ProviderDiscoveryService(
         if (filter.requestedDate == null) return true
         if (!profile.available) return false
         val day = filter.requestedDate.dayOfWeek
-        return profile.availabilityRanges.any { it.dayOfWeek == day && contains(it, filter.startTime, filter.endTime) }
+        val declared = profile.availabilityRanges.any { it.dayOfWeek == day && contains(it, filter.startTime, filter.endTime) }
+        if (!declared || filter.startTime == null || filter.endTime == null) return declared
+        val start = filter.requestedDate.atTime(filter.startTime).atZone(ADDIS_ABABA).toInstant()
+        val end = filter.requestedDate.atTime(filter.endTime).atZone(ADDIS_ABABA).toInstant()
+        return !bookingAvailability.hasBlockingConflict(profile.providerId, start, end)
     }
 
     private fun contains(range: AvailabilityRange, start: LocalTime?, end: LocalTime?) = start == null || (range.startTime <= start && range.endTime >= end)
+
+    companion object { private val ADDIS_ABABA = ZoneId.of("Africa/Addis_Ababa") }
 }

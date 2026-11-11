@@ -19,3 +19,13 @@ class InactiveAccountException :
 
 class AccountNotFoundException :
     IdentityException("The authenticated account no longer exists", "identity.account_not_found")
+
+class GoogleAuthUnavailableException : IdentityException("Google authentication is not configured", "identity.google_auth_unavailable")
+class GoogleTokenInvalidException : IdentityException("The Google ID token is invalid", "identity.google_token_invalid")
+class GoogleTokenExpiredException : IdentityException("The Google ID token is expired", "identity.google_token_expired")
+class GoogleAudienceInvalidException : IdentityException("The Google ID token audience is not allowed", "identity.google_audience_invalid")
+class GoogleEmailNotVerifiedException : IdentityException("Google has not verified this email", "identity.google_email_not_verified")
+class GoogleAccountLinkRequiredException : IdentityException("Authenticate to the existing account and explicitly link Google", "identity.google_account_link_required")
+class GoogleIdentityAlreadyLinkedException : IdentityException("This Google identity or account is already linked", "identity.google_identity_already_linked")
+class GoogleRegistrationRoleRequiredException : IdentityException("A CUSTOMER or SERVICE_PROVIDER role is required for first-time Google registration", "identity.google_registration_role_required")
+class GoogleIdentityEmailMismatchException : IdentityException("Google verified email must match the platform account email", "identity.google_identity_email_mismatch")

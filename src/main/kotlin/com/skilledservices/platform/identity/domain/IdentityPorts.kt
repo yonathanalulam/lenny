@@ -12,6 +12,12 @@ interface AccountStore {
     fun save(account: Account): Account
 }
 
+interface ExternalIdentityStore {
+    fun findByProviderAndSubject(provider: ExternalIdentityProvider, subject: String): ExternalIdentity?
+    fun findByAccountAndProvider(accountId: UUID, provider: ExternalIdentityProvider): ExternalIdentity?
+    fun save(identity: ExternalIdentity): ExternalIdentity
+}
+
 interface RefreshSessionStore {
     fun save(session: RefreshSession): RefreshSession
     fun findByIdForUpdate(id: UUID): RefreshSession?

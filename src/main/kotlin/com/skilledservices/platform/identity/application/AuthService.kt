@@ -13,6 +13,14 @@ import com.skilledservices.platform.identity.domain.PasswordHashPort
 import com.skilledservices.platform.identity.domain.RefreshSession
 import com.skilledservices.platform.identity.domain.RefreshSessionStore
 import com.skilledservices.platform.identity.domain.SessionPolicy
+import com.skilledservices.platform.identity.domain.ExternalIdentity
+import com.skilledservices.platform.identity.domain.ExternalIdentityProvider
+import com.skilledservices.platform.identity.domain.ExternalIdentityStore
+import com.skilledservices.platform.identity.domain.GoogleAccountLinkRequiredException
+import com.skilledservices.platform.identity.domain.GoogleIdentityAlreadyLinkedException
+import com.skilledservices.platform.identity.domain.GoogleIdentityEmailMismatchException
+import com.skilledservices.platform.identity.domain.GoogleRegistrationRoleRequiredException
+import com.skilledservices.platform.identity.domain.AccountNotFoundException
 import com.skilledservices.platform.profiles.application.VerificationRegistrationPort
 import com.skilledservices.platform.profiles.domain.MarketplaceSubjectType
 import org.springframework.stereotype.Service
@@ -30,6 +38,8 @@ class AuthService(
     private val accountStore: AccountStore,
     private val verificationTrustService: VerificationRegistrationPort,
     private val refreshSessionStore: RefreshSessionStore,
+    private val externalIdentityStore: ExternalIdentityStore,
+    private val googleIdentityVerifier: GoogleIdentityVerifier,
     private val passwordHashPort: PasswordHashPort,
     private val accessTokenPort: AccessTokenPort,
     private val sessionPolicy: SessionPolicy,
@@ -50,11 +60,57 @@ class AuthService(
         val email = normalizeEmail(command.email)
         val account = accountStore.findByEmail(email)
             ?: throw InvalidCredentialsException()
-        if (!passwordHashPort.matches(command.password, account.passwordHash)) {
+        val passwordHash = account.passwordHash
+        if (passwordHash == null || !passwordHashPort.matches(command.password, passwordHash)) {
             throw InvalidCredentialsException()
         }
         ensureActive(account)
         return createAuthenticatedSession(account, context)
+    }
+
+    @Transactional
+    fun authenticateWithGoogle(command: GoogleAuthCommand, context: ClientContext): AuthResult {
+        val verified = googleIdentityVerifier.verifyIdToken(command.idToken)
+        val now = clock.instant()
+        val linked = externalIdentityStore.findByProviderAndSubject(ExternalIdentityProvider.GOOGLE, verified.subject)
+        if (linked != null) {
+            val account = accountStore.findById(linked.accountId) ?: throw InvalidCredentialsException()
+            ensureActive(account)
+            externalIdentityStore.save(linked.copy(verifiedEmail = verified.email, lastLoginAt = now))
+            return createAuthenticatedSession(account, context)
+        }
+        if (accountStore.findByEmail(normalizeEmail(verified.email)) != null) throw GoogleAccountLinkRequiredException()
+        val role = command.requestedRole
+        if (role !in setOf(AccountRole.CUSTOMER, AccountRole.SERVICE_PROVIDER)) throw GoogleRegistrationRoleRequiredException()
+        val phone = command.phone?.trim()?.takeIf { it.isNotEmpty() }
+        if (phone != null && accountStore.existsByPhone(phone)) throw DuplicateContactException("phone number")
+        val account = accountStore.save(Account(
+            id = UUID.randomUUID(), email = normalizeEmail(verified.email), phone = phone, passwordHash = null,
+            status = AccountStatus.ACTIVE, roles = setOf(role!!), emailVerified = true, phoneVerified = false,
+            credentialVersion = 1, createdAt = now, updatedAt = now,
+        ))
+        verificationTrustService.initializePending(account.id, role.toMarketplaceSubjectType(), now)
+        externalIdentityStore.save(ExternalIdentity(
+            UUID.randomUUID(), account.id, ExternalIdentityProvider.GOOGLE, verified.subject,
+            verified.email, now, now,
+        ))
+        return createAuthenticatedSession(account, context)
+    }
+
+    @Transactional
+    fun linkGoogle(accountId: UUID, idToken: String): GoogleLinkResult {
+        val account = accountStore.findById(accountId) ?: throw AccountNotFoundException()
+        ensureActive(account)
+        val verified = googleIdentityVerifier.verifyIdToken(idToken)
+        if (!account.email.equals(verified.email, ignoreCase = true)) throw GoogleIdentityEmailMismatchException()
+        if (externalIdentityStore.findByProviderAndSubject(ExternalIdentityProvider.GOOGLE, verified.subject) != null ||
+            externalIdentityStore.findByAccountAndProvider(accountId, ExternalIdentityProvider.GOOGLE) != null
+        ) throw GoogleIdentityAlreadyLinkedException()
+        val now = clock.instant()
+        return GoogleLinkResult(externalIdentityStore.save(ExternalIdentity(
+            UUID.randomUUID(), account.id, ExternalIdentityProvider.GOOGLE, verified.subject,
+            verified.email, now, now,
+        )))
     }
 
     @Transactional

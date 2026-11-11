@@ -213,7 +213,9 @@ class PostingFeeProposalsPostgresIntegrationTest {
             bearer(providerB.accessToken); contentType = MediaType.APPLICATION_JSON; content = proposalJson("800.00")
         }.andExpect { status { isConflict() }; jsonPath("$.code") { value("INVITATION_NOT_PENDING") } }
 
-        mockMvc.post("/api/v1/customers/me/proposals/$directProposal/accept") { bearer(customer.accessToken) }.andExpect { status { isNotFound() } }
+        mockMvc.post("/api/v1/customers/me/proposals/$directProposal/accept") { bearer(customer.accessToken) }.andExpect {
+            status { isBadRequest() }; jsonPath("$.code") { value("request.invalid_body") }
+        }
 
         val concurrentJob = createJob(customer.accessToken, electrical)
         mockMvc.post("/api/v1/customers/me/requests/$concurrentJob/request-publication") { bearer(customer.accessToken) }.andExpect { status { isOk() } }
@@ -242,7 +244,7 @@ class PostingFeeProposalsPostgresIntegrationTest {
 
         mockMvc.get("/v3/api-docs").andExpect {
             status { isOk() }; jsonPath("$.paths['/api/v1/providers/me/jobs']") { exists() }
-            jsonPath("$.paths['/api/v1/customers/me/proposals/{proposalId}/accept']") { doesNotExist() }
+            jsonPath("$.paths['/api/v1/customers/me/proposals/{proposalId}/accept'].post") { exists() }
         }
     }
 

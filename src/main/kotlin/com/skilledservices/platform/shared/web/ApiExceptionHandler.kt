@@ -5,6 +5,7 @@ import com.skilledservices.platform.identity.domain.IdentityException
 import com.skilledservices.platform.identity.domain.InactiveAccountException
 import com.skilledservices.platform.identity.domain.InvalidCredentialsException
 import com.skilledservices.platform.identity.domain.InvalidRefreshTokenException
+import com.skilledservices.platform.identity.domain.*
 import jakarta.servlet.http.HttpServletRequest
 import com.skilledservices.platform.profiles.domain.ForbiddenVerificationAccessException
 import com.skilledservices.platform.profiles.domain.InvalidVerificationTransitionException
@@ -20,6 +21,7 @@ import com.skilledservices.platform.marketplace.domain.CategoryNotFoundException
 import com.skilledservices.platform.marketplace.domain.MarketplaceException
 import com.skilledservices.platform.marketplace.domain.ProviderNotPublicException
 import com.skilledservices.platform.requests.domain.*
+import com.skilledservices.platform.booking.domain.*
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -76,6 +78,11 @@ class ApiExceptionHandler {
     fun identity(exception: IdentityException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         val status = when (exception) {
             is DuplicateContactException -> HttpStatus.CONFLICT
+            is GoogleAuthUnavailableException -> HttpStatus.SERVICE_UNAVAILABLE
+            is GoogleAccountLinkRequiredException, is GoogleIdentityAlreadyLinkedException -> HttpStatus.CONFLICT
+            is GoogleRegistrationRoleRequiredException, is GoogleIdentityEmailMismatchException -> HttpStatus.BAD_REQUEST
+            is GoogleTokenInvalidException, is GoogleTokenExpiredException, is GoogleAudienceInvalidException,
+            is GoogleEmailNotVerifiedException -> HttpStatus.UNAUTHORIZED
             is InvalidCredentialsException, is InvalidRefreshTokenException, is InactiveAccountException -> HttpStatus.UNAUTHORIZED
             else -> HttpStatus.NOT_FOUND
         }
@@ -127,6 +134,20 @@ class ApiExceptionHandler {
             is PaymentCallbackInvalidException -> HttpStatus.UNAUTHORIZED
             is UnsupportedRequestAttachmentTypeException -> HttpStatus.UNSUPPORTED_MEDIA_TYPE
             is RequestAttachmentTooLargeException -> HttpStatus.PAYLOAD_TOO_LARGE
+            else -> HttpStatus.BAD_REQUEST
+        }
+        return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)
+    }
+
+    @ExceptionHandler(BookingException::class)
+    fun booking(exception: BookingException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        val status = when (exception) {
+            is BookingNotFoundException -> HttpStatus.NOT_FOUND
+            is BookingNotOwnedException, is BookingActorInactiveException -> HttpStatus.FORBIDDEN
+            is BookingScheduleInvalidException, is BookingCancellationReasonInvalidException -> HttpStatus.BAD_REQUEST
+            is ProviderNotAvailableException, is BookingScheduleConflictException,
+            is RequestAlreadyHasBookingException, is ProposalNotAcceptableException,
+            is BookingInvalidTransitionException -> HttpStatus.CONFLICT
             else -> HttpStatus.BAD_REQUEST
         }
         return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)

@@ -4,6 +4,9 @@ import com.skilledservices.platform.identity.domain.Account
 import com.skilledservices.platform.identity.domain.AccountStore
 import com.skilledservices.platform.identity.domain.RefreshSession
 import com.skilledservices.platform.identity.domain.RefreshSessionStore
+import com.skilledservices.platform.identity.domain.ExternalIdentity
+import com.skilledservices.platform.identity.domain.ExternalIdentityProvider
+import com.skilledservices.platform.identity.domain.ExternalIdentityStore
 import org.springframework.stereotype.Repository
 import java.time.Instant
 import java.util.UUID
@@ -21,6 +24,15 @@ class JpaAccountStore(
     override fun findById(id: UUID): Account? = repository.findById(id).orElse(null)?.toDomain()
 
     override fun save(account: Account): Account = repository.save(account.toEntity()).toDomain()
+}
+
+@Repository
+class JpaExternalIdentityStore(private val repository: ExternalIdentityJpaRepository) : ExternalIdentityStore {
+    override fun findByProviderAndSubject(provider: ExternalIdentityProvider, subject: String) =
+        repository.findByProviderAndProviderSubject(provider, subject)?.toDomain()
+    override fun findByAccountAndProvider(accountId: UUID, provider: ExternalIdentityProvider) =
+        repository.findByAccountIdAndProvider(accountId, provider)?.toDomain()
+    override fun save(identity: ExternalIdentity) = repository.save(identity.toEntity()).toDomain()
 }
 
 @Repository
@@ -62,6 +74,9 @@ private fun Account.toEntity() = AccountEntity(
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
+
+private fun ExternalIdentityEntity.toDomain() = ExternalIdentity(id, accountId, provider, providerSubject, verifiedEmail, createdAt, lastLoginAt)
+private fun ExternalIdentity.toEntity() = ExternalIdentityEntity(id, accountId, provider, providerSubject, verifiedEmail, createdAt, lastLoginAt)
 
 private fun RefreshSessionEntity.toDomain() = RefreshSession(
     id = id,

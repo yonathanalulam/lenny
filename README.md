@@ -2,12 +2,12 @@
 
 Deployable Kotlin/Spring Boot backend for an Addis Ababa home-services marketplace. One modular-monolith REST API and one PostgreSQL database serve web, mobile, and future admin clients.
 
-This checkpoint completes Milestones 1–4: native authentication, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, provider jobs, and proposals through rejection/withdrawal. **Booking and final proposal acceptance are intentionally not implemented. Google Sign-In/OAuth is not implemented.**
+This branch completes Milestones 1–6: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, proposals, transactional Booking confirmation, and the operational Booking lifecycle through completion/cancellation/history.
 
 ## Stack and architecture
 
 - Kotlin, Java 21 toolchain, Spring Boot 4.1.2, MVC, Security and Data JPA
-- PostgreSQL 17, Flyway V1–V5, Testcontainers
+- PostgreSQL 17, Flyway V1–V8, Testcontainers
 - JWT access tokens plus opaque server-side refresh sessions
 - OpenAPI/Swagger, RFC 9457 ProblemDetail responses and correlation IDs
 - Modular-monolith packages with domain/application/API/infrastructure boundaries
@@ -53,8 +53,9 @@ Docker must be running because integration tests use real PostgreSQL rather than
 - [Fresh-clone local development](docs/LOCAL_DEVELOPMENT.md)
 - [Architecture and contributor handoff](docs/TEAM_HANDOFF.md)
 - [Executed Milestones 1–4 test report](docs/TEST_REPORT_MILESTONES_1_TO_4.md)
+- [Executed Milestones 4.5–6 test report](docs/TEST_REPORT_MILESTONES_4_5_TO_6.md)
 - [Frontend integration contract](docs/frontend-integration.md)
 - [Generated OpenAPI contract](docs/openapi.json)
 - [Postman collection and local environment](docs/postman/SkilledServices.postman_collection.json)
 
-The next planned feature milestone is **Milestone 5 — Transactional Proposal Acceptance + Booking Confirmation**. It is outside this checkpoint.
+Messaging, notifications, ratings/reviews, full support/dispute management, and service-payment processing remain later milestones.

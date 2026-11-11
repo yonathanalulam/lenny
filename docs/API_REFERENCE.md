@@ -1,4 +1,4 @@
-# API reference — Milestones 1–4
+# API reference — Milestones 1–6
 
 This is the human-readable companion to [`openapi.json`](openapi.json). The generated OpenAPI document and controller code remain the schema-level authority. All paths are relative to the API host (locally `http://localhost:8080`).
 
@@ -20,11 +20,13 @@ Protected calls use `Authorization: Bearer <access-token>`. `C` means `CUSTOMER`
 | `POST /api/v1/auth/register/customers` | Public | Register native account from `email`, optional `phone`, `password`; returns access/refresh tokens and `user`. | Assigns only `CUSTOMER`; 400 validation, 409 `identity.contact_already_registered`. |
 | `POST /api/v1/auth/register/service-providers` | Public | Same registration contract; creates provider identity and returns session. | Assigns only `SERVICE_PROVIDER`; 400 validation, 409 duplicate contact. |
 | `POST /api/v1/auth/login` | Public | `email`, `password`; returns token pair and account. | Account must be active; 401 invalid credentials/account inactive. |
+| `POST /api/v1/auth/google` | Public | Google `idToken`, optional first-registration `requestedRole` and `phone`; returns the platform token pair. | Validates Google issuer/signature/expiry/audience/email; existing-email collision requires explicit linking. |
 | `POST /api/v1/auth/refresh` | Refresh token | `refreshToken`; atomically rotates session and returns a new token pair. | Token is one-use; 401 `identity.invalid_refresh_token` for expired/revoked/reused tokens. |
 | `POST /api/v1/auth/logout` | Bearer, any role | Revokes the refresh session identified by the JWT; no body, 204 response. | A revoked refresh token cannot rotate again. |
 | `GET /api/v1/me` | Bearer, any role | Returns authenticated account identity, contact verification, roles and marketplace-verification state. | Subject always comes from JWT; never returns password/token hashes. |
+| `POST /api/v1/me/auth-identities/google` | Bearer, any role | Link a verified matching-email Google identity to the current account. | 400 email mismatch; 409 identity already linked. |
 
-See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google Sign-In/OAuth is not implemented.
+See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google is an identity provider only; the platform session remains authoritative.
 
 ## Customer profile and onboarding
 
@@ -124,8 +126,31 @@ Successful verified callbacks atomically mark payment paid and publish the job `
 | `POST /api/v1/providers/me/proposals/{proposalId}/withdraw` | P | Withdraw caller's pending proposal. | 403 owner, 404 absent, 409 non-pending. |
 | `GET /api/v1/customers/me/requests/{requestId}/proposals` | C | List proposals for caller-owned request. | Owner only; exposes proposal/provider public data, not credentials. |
 | `GET /api/v1/customers/me/proposals/{proposalId}` | C | Detail for proposal on caller-owned request. | 403 owner; 404 absent. |
-| `POST /api/v1/customers/me/proposals/{proposalId}/reject` | C | Reject a pending proposal; returns updated proposal. | 409 non-pending. Final acceptance is deliberately unavailable. |
+| `POST /api/v1/customers/me/proposals/{proposalId}/reject` | C | Reject a pending proposal; returns updated proposal. | 409 non-pending. |
+
+## Booking confirmation and participant access
+
+| Method and path | Auth | Purpose and principal fields | Important state/errors |
+| --- | --- | --- | --- |
+| `POST /api/v1/customers/me/proposals/{proposalId}/accept` | C | Supply offset-aware `scheduledStart` and `scheduledEnd`; atomically accepts the Proposal and returns the confirmed customer Booking DTO. | Rechecks ownership, account/marketplace eligibility, category relationship, weekly availability, and conflicts. Errors include `PROPOSAL_NOT_ACCEPTABLE`, `REQUEST_ALREADY_HAS_BOOKING`, `BOOKING_SCHEDULE_INVALID`, `PROVIDER_NOT_AVAILABLE`, and `BOOKING_SCHEDULE_CONFLICT`. |
+| `GET /api/v1/customers/me/bookings` | C | Page through caller-owned Bookings, newest confirmation first; optional `status` filter. | `page` is zero-based; `size` is 1–100. Completed/cancelled history is retained. |
+| `GET /api/v1/customers/me/bookings/{bookingId}` | C | Retrieve the caller's customer Booking projection. | 404 absent; 403 `BOOKING_NOT_OWNED` for another customer. |
+| `GET /api/v1/providers/me/bookings` | P | Page through Bookings assigned to the caller; optional `status` filter. | Only the selected provider has rows. Later eligibility changes do not erase confirmed history. |
+| `GET /api/v1/providers/me/bookings/{bookingId}` | P | Selected-provider projection including exact location and customer phone. | Losing/unrelated providers receive 403 `BOOKING_NOT_OWNED`. |
+
+Confirmation is one database transaction: lock Proposal/request/provider schedule, recheck eligibility and weekly availability, detect half-open interval conflicts, insert the `CONFIRMED` Booking, accept the selected Proposal, reject competing pending Proposals, set the request to `PROVIDER_SELECTED`, and record activity. Any failure rolls back every step. The same successful Proposal is idempotent and returns its existing Booking; another Proposal cannot be accepted for that request. Currency is currently the platform's ETB proposal currency.
+
+## Booking lifecycle
+
+| Method and path | Auth | Transition | Important state/errors |
+| --- | --- | --- | --- |
+| `POST /api/v1/providers/me/bookings/{bookingId}/start` | P | `CONFIRMED -> IN_PROGRESS`; records `startedAt`. | Selected active provider only. Repeating at `IN_PROGRESS` is idempotent; other states return `BOOKING_INVALID_TRANSITION`. |
+| `POST /api/v1/providers/me/bookings/{bookingId}/report-complete` | P | `IN_PROGRESS -> COMPLETION_PENDING`; records `providerReportedCompleteAt`. | Selected active provider only; repeating at target is idempotent. |
+| `POST /api/v1/customers/me/bookings/{bookingId}/confirm-completion` | C | `COMPLETION_PENDING -> COMPLETED`; records `completedAt`. | Booking customer only; repeating at `COMPLETED` is idempotent. |
+| `POST /api/v1/customers/me/bookings/{bookingId}/cancel` | C | `CONFIRMED -> CANCELLED`; optional `reason` up to 500 characters. | Pre-service customer cancellation only. Records actor/timestamp and releases the interval. |
+
+Booking detail DTOs include lifecycle timestamps and privacy-safe `statusHistory` entries (`fromStatus`, `toStatus`, actor context, timestamp, optional reason). History is append-only. `CANCELLED` is the sole non-blocking state; completed/cancelled records remain queryable. Provider cancellation and dispute intake are not exposed because approved policy/category requirements are still ambiguous.
 
 ## Explicitly absent
 
-There is no proposal-accept endpoint, Booking endpoint/lifecycle, Google Sign-In/OAuth endpoint, messaging, notification, rating/review, support, escrow, or service-payment API in Milestones 1–4.
+There is no messaging, notification, rating/review, full support/dispute, escrow, or service-payment API at the Milestone 6 checkpoint.

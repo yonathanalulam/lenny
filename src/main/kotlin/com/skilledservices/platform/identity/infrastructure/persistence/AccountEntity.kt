@@ -27,8 +27,8 @@ class AccountEntity(
     @Column(length = 32)
     var phone: String?,
 
-    @Column(name = "password_hash", nullable = false, length = 100)
-    var passwordHash: String,
+    @Column(name = "password_hash", length = 100)
+    var passwordHash: String?,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)

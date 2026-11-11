@@ -15,7 +15,8 @@ The application is a Kotlin/Spring Boot modular monolith. Each business package 
 - `marketplace`: service categories, provider-category associations, approved-provider discovery/comparison.
 - `requests`: service requests, protected attachments, Direct Invitations, Posting Fee, provider job feed, proposals and activity events.
 - `shared`: ProblemDetail/correlation infrastructure, pagination, time and protected-object storage.
-- `booking`, `communication`, `administration`, `integration`: reserved placeholders; do not assume product behavior exists there.
+- `booking`: transactional confirmation, authoritative provider-time reservation, participant queries, lifecycle transitions, cancellation, and append-only status history.
+- `communication`, `administration`, `integration`: reserved placeholders; do not assume product behavior exists there.
 
 ## Rules contributors must preserve
 
@@ -37,20 +38,21 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 2. Profiles, availability, onboarding, verification/admin review and marketplace eligibility.
 3. Categories, approved-provider discovery/comparison, requests, invitations, drafts and attachments.
 4. Verified Posting Fee publication, provider job feed, invitation responses and proposal submission/review/rejection/withdrawal.
+4.5. Google ID-token verification, explicit account linking, Google-only accounts, and platform JWT/session issuance.
+5. Transactional Proposal acceptance and Booking confirmation with PostgreSQL provider-schedule locking, conflict-aware discovery, post-confirmation privacy, and idempotency.
+6. Provider start/completion report, customer completion confirmation, customer pre-service cancellation, schedule release, filtered history, and lifecycle audit records.
 
 ## Not implemented
 
-- Final Proposal acceptance
-- Booking, provider-time reservation or Booking lifecycle
 - Messaging and notifications
 - Ratings/reviews
 - Support cases
 - AI category suggestion
 - Final reporting/admin dashboards
-- Google Sign-In/OAuth
 - A real production payment gateway
+- Provider-initiated cancellation policy and dispute intake/resolution workflow
 
-The next milestone is **Milestone 5 — Transactional Proposal Acceptance + Booking Confirmation**.
+The next product milestone should select one approved later boundary (communication/support, ratings, or AI category suggestion) rather than extending Booking policy implicitly.
 
 ## Adding a feature
 
@@ -66,6 +68,6 @@ Use this sequence:
 
 ## Team workflow
 
-`main` is the stable integration branch. Begin Milestone 5 from the `backend-m4-stable` tag (or its matching `main` commit), create a feature branch such as `feature/booking-milestone-5`, and merge through review. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery, Requests/Payments/Proposals, future Booking, future Communication/Support, and future Ratings/Admin/AI. Merge cross-module interface changes deliberately and keep commits scoped.
+`main` is the stable integration branch. After the Milestones 4.5–6 pull request is merged and tagged, begin later work from `backend-m6-stable` (or its matching `main` commit) and merge through review. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery, Requests/Payments/Proposals, Booking, future Communication/Support, and future Ratings/Admin/AI. Merge cross-module interface changes deliberately and keep commits scoped.
 
 Start with [README.md](../README.md), [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), [AUTHENTICATION.md](AUTHENTICATION.md), and [API_REFERENCE.md](API_REFERENCE.md).

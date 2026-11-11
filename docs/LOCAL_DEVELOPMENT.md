@@ -17,6 +17,8 @@ Copy-Item .env.example .env
 
 `.env` is ignored by Git. Docker Compose reads it automatically, but Gradle `bootRun` needs variables exported into the current shell. At minimum generate `JWT_SECRET_BASE64` as described in [AUTHENTICATION.md](AUTHENTICATION.md).
 
+Google authentication is optional. To enable it, export a comma-separated allowlist without committing client IDs: `$env:GOOGLE_ALLOWED_CLIENT_IDS="web-client-id,android-client-id,ios-client-id"`. With no value, native auth works normally and Google exchange fails closed.
+
 Safe local database defaults are already reflected in `docker-compose.yml`:
 
 ```powershell

@@ -4,6 +4,7 @@ import com.skilledservices.platform.identity.application.AuthService
 import com.skilledservices.platform.identity.application.ClientContext
 import com.skilledservices.platform.identity.application.LoginCommand
 import com.skilledservices.platform.identity.application.RegistrationCommand
+import com.skilledservices.platform.identity.application.GoogleAuthCommand
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -60,6 +61,16 @@ class AuthController(
         servletRequest: HttpServletRequest,
     ): AuthResponse = authService.login(
         LoginCommand(request.email, request.password),
+        servletRequest.clientContext(),
+    ).toResponse()
+
+    @PostMapping("/google")
+    @Operation(summary = "Authenticate or register with a verified Google ID token")
+    fun google(
+        @Valid @RequestBody request: GoogleAuthRequest,
+        servletRequest: HttpServletRequest,
+    ): AuthResponse = authService.authenticateWithGoogle(
+        GoogleAuthCommand(request.idToken, request.requestedRole, request.phone),
         servletRequest.clientContext(),
     ).toResponse()
 

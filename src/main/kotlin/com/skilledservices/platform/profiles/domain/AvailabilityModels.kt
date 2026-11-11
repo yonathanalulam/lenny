@@ -21,5 +21,6 @@ data class ProviderAvailability(
 
 interface ProviderAvailabilityStore {
     fun findByProviderId(providerId: UUID): ProviderAvailability?
+    fun findByProviderIdForUpdate(providerId: UUID): ProviderAvailability?
     fun save(availability: ProviderAvailability): ProviderAvailability
 }
