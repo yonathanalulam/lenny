@@ -254,6 +254,22 @@ List endpoints accept an optional `status` enum filter and retain deterministic 
 Provider cancellation and dispute opening are intentionally absent pending approved policy. Do not synthesize either transition client-side.
 
 Additional stable errors include `POSTING_FEE_NOT_REQUIRED`, `POSTING_FEE_ALREADY_PAID`, `PAYMENT_PROVIDER_UNAVAILABLE`, `PAYMENT_INITIATION_FAILED`, `PAYMENT_VERIFICATION_FAILED`, `PAYMENT_AMOUNT_MISMATCH`, `PAYMENT_CALLBACK_INVALID`, `JOB_NOT_OPEN`, `JOB_NOT_ELIGIBLE`, `INVITATION_NOT_PENDING`, `INVITATION_NOT_OWNED`, `PROPOSAL_ALREADY_EXISTS`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_NOT_PENDING`, and `PROPOSAL_NOT_OWNED`.
+
+## Communication and notifications
+
+Open a conversation with `POST /me/conversations` using either `bookingId`, or `requestId` plus `counterpartAccountId` when a Job Posting still has multiple provider relationships. Then use `/me/conversations/{id}/messages` and `/read`. Conversation/message payloads intentionally omit exact location and phone data; after confirmation retrieve permitted contact/location only from the selected-provider Booking endpoint.
+
+Poll `GET /me/notifications?unreadOnly=true&page=0&size=20`. Mark one with `POST /me/notifications/{id}/read` or all with `/read-all`. Notification text is a safe UI hint; use `relatedEntityType`/`relatedEntityId` to navigate and then fetch the authoritative resource.
+
+Blocking is caller-scoped under `/me/blocks`. It disables new messages, invitations, and proposals between the pair, but the UI must continue showing historical messages and Booking obligations. Never imply that blocking automatically cancels a Booking.
+
+## Reports, support, and preferences
+
+Submit a report through `POST /me/reports` with a bounded category and, when available, `USER`, `REQUEST`, `BOOKING`, or `CONVERSATION` context. Users can see their own report status; only administrators can moderate.
+
+Create support via `POST /me/support-cases`. A `BOOKING_DISPUTE` requires `bookingId` and can move an eligible Booking to `UNDER_REVIEW`. The frontend must not promise refunds, escrow, payment reversal, or a particular post-resolution Booking transition. Participant case views never include `internalNote`.
+
+Use `GET|PUT /me/preferences` for `preferredLanguage` (`AM` or `EN`) and in-app notification switches. Stable codes/enums are localizable by web/mobile; message bodies, reviews, and other user content are not translated by the backend.
 # Google authentication
 
 Web/mobile obtains a Google **ID token** from the Google client SDK and sends it to `POST /api/v1/auth/google`. The response is the same platform access/refresh pair used by native login. Never use the Google token as `Authorization: Bearer` for platform endpoints. First-time users supply `requestedRole` (`CUSTOMER` or `SERVICE_PROVIDER`); marketplace verification remains `PENDING`. Existing native-email collisions must log in natively and call `POST /api/v1/me/auth-identities/google` to link explicitly.

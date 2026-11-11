@@ -15,6 +15,9 @@ import com.skilledservices.platform.shared.storage.ProtectedObject
 import com.skilledservices.platform.shared.storage.ProtectedObjectStorage
 import com.skilledservices.platform.shared.storage.ProtectedObjectStore
 import com.skilledservices.platform.shared.storage.ProtectedUploadPolicy
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
+import com.skilledservices.platform.shared.events.MarketplaceInteractionPolicy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -69,6 +72,8 @@ class RequestService(
     private val uploadPolicy: ProtectedUploadPolicy,
     private val activities: MarketplaceActivityStore,
     private val providerRequestEligibility: ProviderRequestEligibility,
+    private val notifications: PlatformNotificationPort,
+    private val interactionPolicy: MarketplaceInteractionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
@@ -78,7 +83,10 @@ class RequestService(
         validate(command)
         val category = categories.findById(command.categoryId) ?: throw CategoryNotFoundException()
         if (!category.active) throw CategoryInactiveException()
-        if (command.type == ServiceRequestType.DIRECT_INVITATION) validateTargetProvider(command.providerId!!, category.id)
+        if (command.type == ServiceRequestType.DIRECT_INVITATION) {
+            interactionPolicy.requireAllowed(customerId, command.providerId!!)
+            validateTargetProvider(command.providerId, category.id)
+        }
         val now = clock.instant()
         val request = requests.save(
             ServiceRequest(
@@ -93,6 +101,8 @@ class RequestService(
         val invitation = if (command.type == ServiceRequestType.DIRECT_INVITATION) {
             invitations.save(DirectInvitation(UUID.randomUUID(), request.id, command.providerId!!, InvitationStatus.PENDING, now, now)).also {
                 activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "INVITATION", it.id, "INVITATION_SENT", customerId, now))
+                notifications.publish(PlatformNotification(it.providerId, "INVITATION_RECEIVED", "Invitation received",
+                    "A customer invited you to a service request.", "INVITATION", it.id))
             }
         } else null
         return RequestDetails(request, invitation, emptyList())
@@ -172,6 +182,8 @@ class RequestService(
         invitation?.let {
             invitations.save(it.copy(status = InvitationStatus.WITHDRAWN, updatedAt = now))
             activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "INVITATION", it.id, "INVITATION_WITHDRAWN", customerId, now))
+            notifications.publish(PlatformNotification(it.providerId, "INVITATION_WITHDRAWN", "Invitation withdrawn",
+                "A customer withdrew a service invitation.", "INVITATION", it.id))
         }
         return details(saved)
     }

@@ -22,6 +22,7 @@ import com.skilledservices.platform.marketplace.domain.MarketplaceException
 import com.skilledservices.platform.marketplace.domain.ProviderNotPublicException
 import com.skilledservices.platform.requests.domain.*
 import com.skilledservices.platform.booking.domain.*
+import com.skilledservices.platform.communication.domain.*
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -148,6 +149,21 @@ class ApiExceptionHandler {
             is ProviderNotAvailableException, is BookingScheduleConflictException,
             is RequestAlreadyHasBookingException, is ProposalNotAcceptableException,
             is BookingInvalidTransitionException -> HttpStatus.CONFLICT
+            else -> HttpStatus.BAD_REQUEST
+        }
+        return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)
+    }
+
+    @ExceptionHandler(CommunicationException::class)
+    fun communication(exception: CommunicationException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        val status = when (exception) {
+            is ConversationNotFoundException, is ReportNotFoundException, is SupportCaseNotFoundException,
+            is NotificationNotFoundException, is BlockNotFoundException -> HttpStatus.NOT_FOUND
+            is ConversationAccessDeniedException, is SupportCaseAccessDeniedException,
+            is NotificationAccessDeniedException -> HttpStatus.FORBIDDEN
+            is InteractionBlockedException, is DuplicateBlockException, is ConversationClosedException,
+            is ActiveDisputeExistsException, is ReportInvalidTransitionException,
+            is SupportCaseInvalidTransitionException -> HttpStatus.CONFLICT
             else -> HttpStatus.BAD_REQUEST
         }
         return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)

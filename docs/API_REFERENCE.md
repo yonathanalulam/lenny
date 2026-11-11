@@ -1,4 +1,4 @@
-# API reference — Milestones 1–6
+# API reference — Milestones 1–7
 
 This is the human-readable companion to [`openapi.json`](openapi.json). The generated OpenAPI document and controller code remain the schema-level authority. All paths are relative to the API host (locally `http://localhost:8080`).
 
@@ -27,6 +27,32 @@ Protected calls use `Authorization: Bearer <access-token>`. `C` means `CUSTOMER`
 | `POST /api/v1/me/auth-identities/google` | Bearer, any role | Link a verified matching-email Google identity to the current account. | 400 email mismatch; 409 identity already linked. |
 
 See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google is an identity provider only; the platform session remains authoritative.
+
+## Communication, notifications, moderation, and preferences
+
+| Method and path | Auth | Purpose and important behavior |
+| --- | --- | --- |
+| `POST /api/v1/me/conversations` | Any authenticated participant | Open/idempotently return a relationship-backed conversation using exactly one `requestId` or `bookingId`; Job Posting customers also provide `counterpartAccountId` before provider selection. |
+| `GET /api/v1/me/conversations` | Participant | Deterministic paginated participant conversations. |
+| `GET /api/v1/me/conversations/{id}` | Participant | Conversation metadata only; no phone/exact-location duplication. |
+| `GET /api/v1/me/conversations/{id}/messages` | Participant | Database-paginated newest-first message history. |
+| `POST /api/v1/me/conversations/{id}/messages` | Participant | Send a 1–4000 character message unless either participant has blocked the other. |
+| `POST /api/v1/me/conversations/{id}/read` | Participant | Mark only received unread messages read. |
+| `GET /api/v1/me/notifications` | Recipient | Page notifications; `unreadOnly=true` is supported. |
+| `POST /api/v1/me/notifications/{id}/read` | Recipient | Idempotently mark one notification read. |
+| `POST /api/v1/me/notifications/read-all` | Recipient | Mark all caller notifications read. |
+| `GET`, `POST /api/v1/me/blocks` | Any authenticated marketplace participant | List own blocks or block an account with legitimate interaction history. |
+| `DELETE /api/v1/me/blocks/{accountId}` | Block owner | Remove caller-owned block; history is retained. |
+| `GET`, `POST /api/v1/me/reports` | Any authenticated marketplace participant | List own reports or submit a context-validated report. |
+| `GET`, `POST /api/v1/me/support-cases` | Booking/request participant | List/create support cases; `BOOKING_DISPUTE` atomically moves eligible Booking to `UNDER_REVIEW`. |
+| `GET /api/v1/me/support-cases/{id}` | Booking/request participant | Participant-safe case view; admin internal note is omitted. |
+| `GET`, `PUT /api/v1/me/preferences` | Any authenticated account | Own `AM`/`EN` language and in-app notification category preferences. |
+| `GET /api/v1/admin/reports` | A | Paginated/filterable report queue. |
+| `POST /api/v1/admin/reports/{id}/review` | A | Move report to review/resolution/dismissal through the application service. |
+| `GET /api/v1/admin/support-cases[/{id}]` | A | Paginated case queue/detail including safe internal notes. |
+| `POST /api/v1/admin/support-cases/{id}/review` | A | Move case through `OPEN`, `IN_REVIEW`, `RESOLVED`, `CLOSED`. |
+
+Blocking restricts new messages, Direct Invitations, and Proposals. It never cancels an existing Booking or erases messages/history. Persistent notifications contain concise event text and entity identifiers, never exact locations, phone numbers, report descriptions, message bodies, evidence, or provider callback payloads. Support resolution records an outcome only; it performs no refund or service-payment operation and does not guess a post-`UNDER_REVIEW` Booking state.
 
 ## Customer profile and onboarding
 

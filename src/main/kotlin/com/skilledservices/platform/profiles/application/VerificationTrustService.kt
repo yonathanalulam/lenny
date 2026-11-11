@@ -14,6 +14,8 @@ import com.skilledservices.platform.shared.storage.ProtectedObject
 import com.skilledservices.platform.shared.storage.ProtectedObjectStorage
 import com.skilledservices.platform.shared.storage.ProtectedObjectStore
 import com.skilledservices.platform.shared.storage.ProtectedUploadPolicy
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
 import com.skilledservices.platform.profiles.domain.UnsupportedUploadTypeException
 import com.skilledservices.platform.profiles.domain.UploadTooLargeException
 import com.skilledservices.platform.profiles.domain.VerificationAlreadyPendingException
@@ -70,6 +72,7 @@ class VerificationTrustService(
     private val protectedObjectStorage: ProtectedObjectStorage,
     private val uploadPolicy: ProtectedUploadPolicy,
     private val identityAccountQuery: IdentityAccountQuery,
+    private val notifications: PlatformNotificationPort,
     private val clock: Clock,
 ) : VerificationRegistrationPort {
     @Transactional
@@ -200,6 +203,8 @@ class VerificationTrustService(
         decisionStore.save(
             VerificationDecision(UUID.randomUUID(), verification.id, resultingStatus, adminId, note, now),
         )
+        notifications.publish(PlatformNotification(verification.accountId, "VERIFICATION_DECIDED", "Verification updated",
+            "Your marketplace verification status is now $resultingStatus.", "VERIFICATION", verification.id))
         return details(updated)
     }
 

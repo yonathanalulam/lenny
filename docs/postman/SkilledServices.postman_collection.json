@@ -140,6 +140,40 @@
         { "name": "Customer confirm completion", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/customers/me/bookings/{{bookingId}}/confirm-completion" } },
         { "name": "Customer cancel confirmed booking", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Schedule changed\"\n}" }, "url": "{{baseUrl}}/api/v1/customers/me/bookings/{{bookingId}}/cancel" } }
       ]
+    },
+    {
+      "name": "15. Communication",
+      "item": [
+        { "name": "Open request conversation", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code < 300) pm.environment.set('conversationId', pm.response.json().id);"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"requestId\": \"{{requestId}}\", \"counterpartAccountId\": \"{{providerId}}\" }" }, "url": "{{baseUrl}}/api/v1/me/conversations" } },
+        { "name": "List conversations", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me/conversations?page=0&size=20" } },
+        { "name": "Send message", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"body\": \"Hello from the customer.\" }" }, "url": "{{baseUrl}}/api/v1/me/conversations/{{conversationId}}/messages" } },
+        { "name": "List messages", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me/conversations/{{conversationId}}/messages?page=0&size=50" } },
+        { "name": "Mark messages read", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me/conversations/{{conversationId}}/read" } }
+      ]
+    },
+    {
+      "name": "16. Notifications and Preferences",
+      "item": [
+        { "name": "List unread notifications", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me/notifications?unreadOnly=true&page=0&size=20" } },
+        { "name": "Read preferences", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/me/preferences" } },
+        { "name": "Set Amharic preference", "request": { "method": "PUT", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"preferredLanguage\": \"AM\", \"marketplaceNotificationsEnabled\": true, \"communicationNotificationsEnabled\": true, \"supportNotificationsEnabled\": true }" }, "url": "{{baseUrl}}/api/v1/me/preferences" } }
+      ]
+    },
+    {
+      "name": "17. Blocking and Reports",
+      "item": [
+        { "name": "Block marketplace participant", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"blockedAccountId\": \"{{providerId}}\", \"reasonCategory\": \"OTHER\" }" }, "url": "{{baseUrl}}/api/v1/me/blocks" } },
+        { "name": "Submit report", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) pm.environment.set('reportId', pm.response.json().id);"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"reportedAccountId\": \"{{providerId}}\", \"relatedEntityType\": \"REQUEST\", \"relatedEntityId\": \"{{requestId}}\", \"category\": \"OTHER\", \"description\": \"Please review this interaction.\" }" }, "url": "{{baseUrl}}/api/v1/me/reports" } },
+        { "name": "Admin list reports", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/reports?page=0&size=20" } }
+      ]
+    },
+    {
+      "name": "18. Support and Disputes",
+      "item": [
+        { "name": "Open Booking dispute", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) pm.environment.set('supportCaseId', pm.response.json().id);"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"bookingId\": \"{{bookingId}}\", \"type\": \"BOOKING_DISPUTE\", \"description\": \"Please review this Booking.\" }" }, "url": "{{baseUrl}}/api/v1/me/support-cases" } },
+        { "name": "Admin list support cases", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/support-cases?page=0&size=20" } },
+        { "name": "Admin start case review", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"IN_REVIEW\", \"internalNote\": \"Investigation started.\" }" }, "url": "{{baseUrl}}/api/v1/admin/support-cases/{{supportCaseId}}/review" } }
+      ]
     }
   ]
 }

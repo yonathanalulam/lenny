@@ -11,7 +11,7 @@ The platform is one Spring Boot modular monolith. Website, mobile, and administr
 | Marketplace Discovery | `marketplace` | Categories, provider-category assignments, approved-provider discovery, and comparison implemented |
 | Requests, Invitations, Proposals & Posting Fee | `requests` | Verified Posting Fee publication, provider job feed, invitation responses, and proposal review lifecycle implemented |
 | Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, lifecycle, cancellation, and history implemented |
-| Communication & Support | `communication` | Boundary reserved |
+| Communication & Support | `communication` | Relationship-scoped messaging, notifications, blocking/reporting, support/disputes, preferences, and moderation implemented |
 | Administration, Audit & Reporting | `administration` | Boundary reserved |
 | Integration Adapters | `integration` | Boundary reserved |
 
@@ -78,9 +78,19 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 
 ## Booking lifecycle and history
 
-- The aggregate owns `CONFIRMED -> IN_PROGRESS -> COMPLETION_PENDING -> COMPLETED`; controllers cannot assign state directly. `UNDER_REVIEW` remains a reserved lifecycle boundary because dispute intake policy is not sufficiently specified.
+- The aggregate owns `CONFIRMED -> IN_PROGRESS -> COMPLETION_PENDING -> COMPLETED`; controllers cannot assign state directly. The Communication application calls the Booking-owned `BookingDisputePort` to move an eligible participant Booking to `UNDER_REVIEW` atomically with append-only history.
 - The provider starts and reports completion. The customer confirms completion. Repeating an operation already at its target state is idempotent and does not append duplicate history.
 - Customer cancellation is allowed only from `CONFIRMED`. It retains the Booking, actor, timestamp, safe reason, and history. Provider-initiated cancellation is deferred pending approved policy.
 - `booking_status_history` is append-only through its store and is the authoritative transition audit. Broad marketplace activity is not duplicated for every lifecycle transition.
 - All statuses except `CANCELLED` remain blocking for interval conflict purposes. Cancellation therefore releases provider time without deleting service history.
 - Marketplace eligibility gates new participation, not access to an already confirmed Booking. Active-account security still gates lifecycle actions.
+
+## Communication, support, and moderation
+
+- A Conversation exists only for a proven request/Proposal/invitation or Booking relationship. `MarketplaceRelationshipQuery` is a read-only projection; Communication never mutates Requests or Booking tables.
+- Conversation and Message DTOs contain identifiers and user-authored body text only. They do not duplicate phone numbers, exact locations, verification evidence, credentials, admin notes, or storage references.
+- Message history, conversations, notifications, reports, and support cases use deterministic database pagination. Blocking prevents new messages, Direct Invitations, and Proposals but never deletes historical messages, Bookings, or support evidence.
+- In-app notifications are persistent and polling-compatible. `PlatformNotificationPort` decouples existing marketplace modules from the Communication persistence adapter. No SMS, email, push, WebSocket, or SSE provider is implied.
+- A Booking dispute creates a real `support_cases` record and transitions an eligible Booking to `UNDER_REVIEW` in one transaction. Resolution records the support outcome but deliberately leaves the historical Booking in `UNDER_REVIEW`; no financial/refund behavior exists.
+- `platform_audit_events` contains only safe identifiers and event types. Message bodies, report/support descriptions, evidence, and protected data are never copied into audit events.
+- Account preferences persist only `AM`/`EN` and notification-category switches. Arbitrary user content is not translated.

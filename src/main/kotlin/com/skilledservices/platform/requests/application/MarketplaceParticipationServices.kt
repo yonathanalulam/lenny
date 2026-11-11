@@ -9,6 +9,9 @@ import com.skilledservices.platform.profiles.application.ProviderDiscoveryProfil
 import com.skilledservices.platform.profiles.application.ProviderEligibilityService
 import com.skilledservices.platform.requests.domain.*
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
+import com.skilledservices.platform.shared.events.MarketplaceInteractionPolicy
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -81,6 +84,7 @@ class InvitationResponseService(
     private val requests: ServiceRequestStore,
     private val providerEligibility: ProviderRequestEligibility,
     private val activities: MarketplaceActivityStore,
+    private val notifications: PlatformNotificationPort,
     private val clock: Clock,
 ) {
     @Transactional
@@ -101,6 +105,10 @@ class InvitationResponseService(
         val saved = invitations.save(invitation.copy(status = target, updatedAt = now))
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "INVITATION", saved.id,
             if (target == InvitationStatus.ACCEPTED) "INVITATION_ACCEPTED" else "INVITATION_DECLINED", providerId, now))
+        notifications.publish(PlatformNotification(request.customerId,
+            if (target == InvitationStatus.ACCEPTED) "INVITATION_ACCEPTED" else "INVITATION_DECLINED",
+            if (target == InvitationStatus.ACCEPTED) "Invitation accepted" else "Invitation declined",
+            "A provider responded to your service invitation.", "INVITATION", saved.id))
         return saved
     }
 }
@@ -122,12 +130,15 @@ class ProposalService(
     private val providerEligibility: ProviderRequestEligibility,
     private val identity: IdentityAccountQuery,
     private val activities: MarketplaceActivityStore,
+    private val notifications: PlatformNotificationPort,
+    private val interactionPolicy: MarketplaceInteractionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
     fun submit(providerId: UUID, requestId: UUID, command: SubmitProposalCommand): Proposal {
         providerEligibility.requireMarketplace(providerId)
         val request = requests.findByIdForUpdate(requestId) ?: throw RequestNotFoundException()
+        interactionPolicy.requireAllowed(providerId, request.customerId)
         if (request.status != ServiceRequestStatus.OPEN) throw JobNotOpenException()
         when (request.type) {
             ServiceRequestType.DIRECT_INVITATION -> {
@@ -149,6 +160,8 @@ class ProposalService(
                 ProposalStatus.PENDING, now, now, null, null))
         } catch (_: DataIntegrityViolationException) { throw ProposalAlreadyExistsException() }
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "PROPOSAL", proposal.id, "PROPOSAL_SUBMITTED", providerId, now))
+        notifications.publish(PlatformNotification(request.customerId, "PROPOSAL_RECEIVED", "Proposal received",
+            "A provider submitted a proposal for your service request.", "PROPOSAL", proposal.id))
         return proposal
     }
 
@@ -191,6 +204,8 @@ class ProposalService(
         val now = clock.instant()
         val saved = proposals.save(proposal.copy(status = ProposalStatus.REJECTED, updatedAt = now, rejectedAt = now))
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "PROPOSAL", saved.id, "PROPOSAL_REJECTED", customerId, now))
+        notifications.publish(PlatformNotification(saved.providerId, "PROPOSAL_REJECTED", "Proposal not selected",
+            "A customer rejected your proposal.", "PROPOSAL", saved.id))
         return saved
     }
 

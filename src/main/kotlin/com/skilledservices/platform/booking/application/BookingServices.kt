@@ -5,6 +5,8 @@ import com.skilledservices.platform.identity.application.IdentityAccountQuery
 import com.skilledservices.platform.identity.domain.AccountStatus
 import com.skilledservices.platform.profiles.application.*
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,6 +21,10 @@ interface ProviderBookingAvailabilityQuery {
     fun hasBlockingConflict(providerId: UUID, start: Instant, end: Instant): Boolean
 }
 
+interface BookingDisputePort {
+    fun openDispute(actorId: UUID, bookingId: UUID, supportCaseId: UUID)
+}
+
 @Service
 class BookingService(
     private val bookings: BookingStore,
@@ -28,8 +34,9 @@ class BookingService(
     private val customers: CustomerEligibilityService,
     private val providers: ProviderEligibilityService,
     private val identity: IdentityAccountQuery,
+    private val notifications: PlatformNotificationPort,
     private val clock: Clock,
-) : ProviderBookingAvailabilityQuery {
+) : ProviderBookingAvailabilityQuery, BookingDisputePort {
     @Transactional
     fun confirm(customerId: UUID, proposalId: UUID, command: ConfirmBookingCommand): BookingDetails {
         val start = command.scheduledStart.toInstant()
@@ -56,6 +63,8 @@ class BookingService(
         }
         selections.finalizeSelection(selection, booking.id, now)
         history.save(BookingStatusHistory(UUID.randomUUID(), booking.id, null, BookingStatus.CONFIRMED, customerId, BookingActorContext.CUSTOMER, now, null))
+        notifications.publish(PlatformNotification(booking.providerId, "BOOKING_CONFIRMED", "Booking confirmed",
+            "A customer confirmed your proposal.", "BOOKING", booking.id))
         return details(booking)
     }
 
@@ -85,21 +94,33 @@ class BookingService(
     fun startProvider(providerId: UUID, bookingId: UUID): BookingDetails {
         requireActive(providerId)
         val booking = lockedProviderBooking(providerId, bookingId)
-        return persistTransition(booking.start(clock.instant()), providerId, BookingActorContext.PROVIDER, null)
+        val transition = booking.start(clock.instant())
+        val result = persistTransition(transition, providerId, BookingActorContext.PROVIDER, null)
+        if (transition.changed) notifications.publish(PlatformNotification(booking.customerId, "BOOKING_STARTED", "Service started",
+            "Your provider started the booked service.", "BOOKING", booking.id))
+        return result
     }
 
     @Transactional
     fun reportComplete(providerId: UUID, bookingId: UUID): BookingDetails {
         requireActive(providerId)
         val booking = lockedProviderBooking(providerId, bookingId)
-        return persistTransition(booking.reportComplete(clock.instant()), providerId, BookingActorContext.PROVIDER, null)
+        val transition = booking.reportComplete(clock.instant())
+        val result = persistTransition(transition, providerId, BookingActorContext.PROVIDER, null)
+        if (transition.changed) notifications.publish(PlatformNotification(booking.customerId, "COMPLETION_REPORTED", "Completion reported",
+            "Your provider reported the service complete.", "BOOKING", booking.id))
+        return result
     }
 
     @Transactional
     fun confirmCompletion(customerId: UUID, bookingId: UUID): BookingDetails {
         requireActive(customerId)
         val booking = lockedCustomerBooking(customerId, bookingId)
-        return persistTransition(booking.confirmCompletion(clock.instant()), customerId, BookingActorContext.CUSTOMER, null)
+        val transition = booking.confirmCompletion(clock.instant())
+        val result = persistTransition(transition, customerId, BookingActorContext.CUSTOMER, null)
+        if (transition.changed) notifications.publish(PlatformNotification(booking.providerId, "COMPLETION_CONFIRMED", "Completion confirmed",
+            "The customer confirmed service completion.", "BOOKING", booking.id))
+        return result
     }
 
     @Transactional
@@ -108,11 +129,31 @@ class BookingService(
         val reason = command.reason?.trim()?.takeIf { it.isNotEmpty() }
         if (reason != null && reason.length > 500) throw BookingCancellationReasonInvalidException()
         val booking = lockedCustomerBooking(customerId, bookingId)
-        return persistTransition(booking.cancel(customerId, reason, clock.instant()), customerId, BookingActorContext.CUSTOMER, reason)
+        val transition = booking.cancel(customerId, reason, clock.instant())
+        val result = persistTransition(transition, customerId, BookingActorContext.CUSTOMER, reason)
+        if (transition.changed) notifications.publish(PlatformNotification(booking.providerId, "BOOKING_CANCELLED", "Booking cancelled",
+            "The customer cancelled a confirmed Booking.", "BOOKING", booking.id))
+        return result
     }
 
     @Transactional(readOnly = true)
     override fun hasBlockingConflict(providerId: UUID, start: Instant, end: Instant) = bookings.existsBlockingConflict(providerId, start, end)
+
+    @Transactional
+    override fun openDispute(actorId: UUID, bookingId: UUID, supportCaseId: UUID) {
+        requireActive(actorId)
+        val booking = bookings.findByIdForUpdate(bookingId) ?: throw BookingNotFoundException()
+        val context = when (actorId) {
+            booking.customerId -> BookingActorContext.CUSTOMER
+            booking.providerId -> BookingActorContext.PROVIDER
+            else -> throw BookingNotOwnedException()
+        }
+        val transition = booking.openReview()
+        persistTransition(transition, actorId, context, "Support case $supportCaseId")
+        val recipient = if (actorId == booking.customerId) booking.providerId else booking.customerId
+        if (transition.changed) notifications.publish(PlatformNotification(recipient, "BOOKING_UNDER_REVIEW", "Booking under review",
+            "A dispute moved this Booking under review.", "BOOKING", booking.id))
+    }
 
     private fun details(booking: Booking) = BookingDetails(booking, selections.requestSnapshot(booking.requestId), identity.accountPhone(booking.customerId), history.findByBookingId(booking.id))
 

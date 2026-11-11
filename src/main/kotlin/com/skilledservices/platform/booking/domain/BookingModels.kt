@@ -49,6 +49,13 @@ data class Booking(
         BookingStatus.CONFIRMED -> BookingTransition(copy(status = BookingStatus.CANCELLED, cancelledAt = now, cancellationActorId = actorId, cancellationReason = reason), BookingStatus.CONFIRMED)
         else -> throw BookingInvalidTransitionException(status, BookingStatus.CANCELLED)
     }
+
+    fun openReview() = when (status) {
+        BookingStatus.UNDER_REVIEW -> BookingTransition(this, null)
+        BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETION_PENDING, BookingStatus.COMPLETED ->
+            BookingTransition(copy(status = BookingStatus.UNDER_REVIEW), status)
+        else -> throw BookingInvalidTransitionException(status, BookingStatus.UNDER_REVIEW)
+    }
 }
 
 data class BookingTransition(val booking: Booking, val fromStatus: BookingStatus?) {

@@ -14,9 +14,10 @@ The application is a Kotlin/Spring Boot modular monolith. Each business package 
 - `profiles`: customer/provider profiles, availability, marketplace verification, evidence, eligibility interfaces.
 - `marketplace`: service categories, provider-category associations, approved-provider discovery/comparison.
 - `requests`: service requests, protected attachments, Direct Invitations, Posting Fee, provider job feed, proposals and activity events.
-- `shared`: ProblemDetail/correlation infrastructure, pagination, time and protected-object storage.
+- `shared`: ProblemDetail/correlation infrastructure, pagination, time, protected-object storage, notification and interaction-policy ports.
 - `booking`: transactional confirmation, authoritative provider-time reservation, participant queries, lifecycle transitions, cancellation, and append-only status history.
-- `communication`, `administration`, `integration`: reserved placeholders; do not assume product behavior exists there.
+- `communication`: conversations/messages, persistent notifications, blocks, reports, support/disputes, account preferences, moderation, and safe audit events.
+- `administration`, `integration`: reserved placeholders; Milestone 8 admin read models and Spring AI adapters belong here without bypassing owning application services.
 
 ## Rules contributors must preserve
 
@@ -41,18 +42,17 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 4.5. Google ID-token verification, explicit account linking, Google-only accounts, and platform JWT/session issuance.
 5. Transactional Proposal acceptance and Booking confirmation with PostgreSQL provider-schedule locking, conflict-aware discovery, post-confirmation privacy, and idempotency.
 6. Provider start/completion report, customer completion confirmation, customer pre-service cancellation, schedule release, filtered history, and lifecycle audit records.
+7. Relationship-scoped messaging, in-app notifications, blocking/reporting, Booking-linked support/disputes, admin moderation, audit facts, and AM/EN account preferences.
 
 ## Not implemented
 
-- Messaging and notifications
 - Ratings/reviews
-- Support cases
 - AI category suggestion
 - Final reporting/admin dashboards
 - A real production payment gateway
-- Provider-initiated cancellation policy and dispute intake/resolution workflow
+- Provider-initiated cancellation policy and post-resolution Booking transition
 
-The next product milestone should select one approved later boundary (communication/support, ratings, or AI category suggestion) rather than extending Booking policy implicitly.
+The next approved gate is Milestone 8: reciprocal feedback, admin reporting/operations, and advisory Spring AI category suggestion.
 
 ## Adding a feature
 
