@@ -143,10 +143,11 @@ class ApiExceptionHandler {
     fun booking(exception: BookingException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
         val status = when (exception) {
             is BookingNotFoundException -> HttpStatus.NOT_FOUND
-            is BookingNotOwnedException -> HttpStatus.FORBIDDEN
-            is BookingScheduleInvalidException -> HttpStatus.BAD_REQUEST
+            is BookingNotOwnedException, is BookingActorInactiveException -> HttpStatus.FORBIDDEN
+            is BookingScheduleInvalidException, is BookingCancellationReasonInvalidException -> HttpStatus.BAD_REQUEST
             is ProviderNotAvailableException, is BookingScheduleConflictException,
-            is RequestAlreadyHasBookingException, is ProposalNotAcceptableException -> HttpStatus.CONFLICT
+            is RequestAlreadyHasBookingException, is ProposalNotAcceptableException,
+            is BookingInvalidTransitionException -> HttpStatus.CONFLICT
             else -> HttpStatus.BAD_REQUEST
         }
         return problem(status, exception.code, exception.message ?: status.reasonPhrase, request)

@@ -10,7 +10,7 @@ The platform is one Spring Boot modular monolith. Website, mobile, and administr
 | Profiles, Verification & Trust | `profiles` | Profiles, availability, verification workflow, evidence, and eligibility implemented |
 | Marketplace Discovery | `marketplace` | Categories, provider-category assignments, approved-provider discovery, and comparison implemented |
 | Requests, Invitations, Proposals & Posting Fee | `requests` | Verified Posting Fee publication, provider job feed, invitation responses, and proposal review lifecycle implemented |
-| Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, and participant read APIs implemented |
+| Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, lifecycle, cancellation, and history implemented |
 | Communication & Support | `communication` | Boundary reserved |
 | Administration, Audit & Reporting | `administration` | Boundary reserved |
 | Integration Adapters | `integration` | Boundary reserved |
@@ -75,3 +75,12 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 - Weekly availability is interpreted in `Africa/Addis_Ababa`. The availability row is pessimistically locked so confirmations for the same provider serialize across application instances.
 - Database uniqueness permits one Booking per request and Proposal and one accepted Proposal per request. Repeating the same successful acceptance returns the existing Booking.
 - Customer and selected-provider DTOs are separate. Only the selected provider can retrieve exact location and customer phone after confirmation.
+
+## Booking lifecycle and history
+
+- The aggregate owns `CONFIRMED -> IN_PROGRESS -> COMPLETION_PENDING -> COMPLETED`; controllers cannot assign state directly. `UNDER_REVIEW` remains a reserved lifecycle boundary because dispute intake policy is not sufficiently specified.
+- The provider starts and reports completion. The customer confirms completion. Repeating an operation already at its target state is idempotent and does not append duplicate history.
+- Customer cancellation is allowed only from `CONFIRMED`. It retains the Booking, actor, timestamp, safe reason, and history. Provider-initiated cancellation is deferred pending approved policy.
+- `booking_status_history` is append-only through its store and is the authoritative transition audit. Broad marketplace activity is not duplicated for every lifecycle transition.
+- All statuses except `CANCELLED` remain blocking for interval conflict purposes. Cancellation therefore releases provider time without deleting service history.
+- Marketplace eligibility gates new participation, not access to an already confirmed Booking. Active-account security still gates lifecycle actions.

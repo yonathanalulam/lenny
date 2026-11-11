@@ -243,7 +243,15 @@ The response is a `CONFIRMED` Booking. The operation is atomic and rechecks both
 
 Use `GET /customers/me/bookings` and `GET /customers/me/bookings/{bookingId}` for customer views. Use the separate provider endpoints under `/providers/me/bookings`; only the selected provider receives exact location and customer phone after confirmation. Losing providers never receive those fields. Discovery requests with a date/time automatically exclude overlapping confirmed Bookings, but the accept operation remains authoritative.
 
-Booking lifecycle actions are not available until Milestone 6.
+## Booking lifecycle
+
+The selected provider calls `/providers/me/bookings/{bookingId}/start`, then `/report-complete`. The booking customer calls `/customers/me/bookings/{bookingId}/confirm-completion`. Successful responses return the updated participant-specific Booking DTO and `statusHistory`.
+
+Customer pre-service cancellation uses `POST /customers/me/bookings/{bookingId}/cancel` with `{ "reason": "optional safe text" }`. It is valid only while `CONFIRMED`; after service starts, show a support/dispute path when that later module exists. A cancelled interval becomes discoverable/bookable again. Never remove completed or cancelled rows from local history views.
+
+List endpoints accept an optional `status` enum filter and retain deterministic newest-confirmed-first pagination. Lifecycle retries already at their target state are safe and do not create duplicate history. Marketplace eligibility changes do not hide existing Bookings, although suspended/deactivated accounts cannot perform lifecycle actions.
+
+Provider cancellation and dispute opening are intentionally absent pending approved policy. Do not synthesize either transition client-side.
 
 Additional stable errors include `POSTING_FEE_NOT_REQUIRED`, `POSTING_FEE_ALREADY_PAID`, `PAYMENT_PROVIDER_UNAVAILABLE`, `PAYMENT_INITIATION_FAILED`, `PAYMENT_VERIFICATION_FAILED`, `PAYMENT_AMOUNT_MISMATCH`, `PAYMENT_CALLBACK_INVALID`, `JOB_NOT_OPEN`, `JOB_NOT_ELIGIBLE`, `INVITATION_NOT_PENDING`, `INVITATION_NOT_OWNED`, `PROPOSAL_ALREADY_EXISTS`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_NOT_PENDING`, and `PROPOSAL_NOT_OWNED`.
 # Google authentication

@@ -44,5 +44,18 @@ class ArchitectureBoundaryTest {
         val bookingService = Files.readString(root.resolve("booking/application/BookingServices.kt"))
         assertTrue(bookingService.contains("CustomerEligibilityService") && bookingService.contains("ProviderEligibilityService"), "Booking must use both eligibility boundaries")
         assertFalse(bookingService.contains("verification.infrastructure"), "Booking must not access verification persistence")
+        bookingFiles.forEach { file ->
+            val source = Files.readString(file)
+            listOf(".communication.", ".messaging.", ".notification.", ".support.").forEach { forbidden ->
+                assertFalse(source.contains(forbidden), "$file must not leak later communication/support modules into Booking")
+            }
+        }
+        val identityApplication = Files.walk(root.resolve("identity/application")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
+        identityApplication.forEach { file ->
+            val source = Files.readString(file)
+            assertFalse(source.contains("com.nimbusds") || source.contains("jose.jwt"), "$file auth application code must not depend on Nimbus internals")
+        }
+        val googleAdapter = root.resolve("identity/infrastructure/google/GoogleIdentityVerifierAdapter.kt")
+        assertTrue(Files.exists(googleAdapter), "Google provider implementation must remain infrastructure-only")
     }
 }

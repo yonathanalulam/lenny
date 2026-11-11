@@ -12,7 +12,8 @@ import java.time.*
 import java.util.UUID
 
 data class ConfirmBookingCommand(val scheduledStart: OffsetDateTime, val scheduledEnd: OffsetDateTime)
-data class BookingDetails(val booking: Booking, val request: BookingRequestSnapshot, val customerPhone: String?)
+data class CancelBookingCommand(val reason: String?)
+data class BookingDetails(val booking: Booking, val request: BookingRequestSnapshot, val customerPhone: String?, val history: List<BookingStatusHistory>)
 
 interface ProviderBookingAvailabilityQuery {
     fun hasBlockingConflict(providerId: UUID, start: Instant, end: Instant): Boolean
@@ -21,6 +22,7 @@ interface ProviderBookingAvailabilityQuery {
 @Service
 class BookingService(
     private val bookings: BookingStore,
+    private val history: BookingStatusHistoryStore,
     private val selections: BookingSelectionPort,
     private val schedules: ProviderScheduleAccess,
     private val customers: CustomerEligibilityService,
@@ -53,11 +55,13 @@ class BookingService(
             throw RequestAlreadyHasBookingException()
         }
         selections.finalizeSelection(selection, booking.id, now)
+        history.save(BookingStatusHistory(UUID.randomUUID(), booking.id, null, BookingStatus.CONFIRMED, customerId, BookingActorContext.CUSTOMER, now, null))
         return details(booking)
     }
 
     @Transactional(readOnly = true)
-    fun listCustomer(customerId: UUID, page: Int, size: Int) = page(bookings.findByCustomerId(customerId).map(::details), page, size)
+    fun listCustomer(customerId: UUID, status: BookingStatus?, page: Int, size: Int) =
+        page(bookings.findByCustomerId(customerId).filter { status == null || it.status == status }.map(::details), page, size)
 
     @Transactional(readOnly = true)
     fun getCustomer(customerId: UUID, bookingId: UUID): BookingDetails {
@@ -67,7 +71,8 @@ class BookingService(
     }
 
     @Transactional(readOnly = true)
-    fun listProvider(providerId: UUID, page: Int, size: Int) = page(bookings.findByProviderId(providerId).map(::details), page, size)
+    fun listProvider(providerId: UUID, status: BookingStatus?, page: Int, size: Int) =
+        page(bookings.findByProviderId(providerId).filter { status == null || it.status == status }.map(::details), page, size)
 
     @Transactional(readOnly = true)
     fun getProvider(providerId: UUID, bookingId: UUID): BookingDetails {
@@ -76,10 +81,63 @@ class BookingService(
         return details(booking)
     }
 
+    @Transactional
+    fun startProvider(providerId: UUID, bookingId: UUID): BookingDetails {
+        requireActive(providerId)
+        val booking = lockedProviderBooking(providerId, bookingId)
+        return persistTransition(booking.start(clock.instant()), providerId, BookingActorContext.PROVIDER, null)
+    }
+
+    @Transactional
+    fun reportComplete(providerId: UUID, bookingId: UUID): BookingDetails {
+        requireActive(providerId)
+        val booking = lockedProviderBooking(providerId, bookingId)
+        return persistTransition(booking.reportComplete(clock.instant()), providerId, BookingActorContext.PROVIDER, null)
+    }
+
+    @Transactional
+    fun confirmCompletion(customerId: UUID, bookingId: UUID): BookingDetails {
+        requireActive(customerId)
+        val booking = lockedCustomerBooking(customerId, bookingId)
+        return persistTransition(booking.confirmCompletion(clock.instant()), customerId, BookingActorContext.CUSTOMER, null)
+    }
+
+    @Transactional
+    fun cancelCustomer(customerId: UUID, bookingId: UUID, command: CancelBookingCommand): BookingDetails {
+        requireActive(customerId)
+        val reason = command.reason?.trim()?.takeIf { it.isNotEmpty() }
+        if (reason != null && reason.length > 500) throw BookingCancellationReasonInvalidException()
+        val booking = lockedCustomerBooking(customerId, bookingId)
+        return persistTransition(booking.cancel(customerId, reason, clock.instant()), customerId, BookingActorContext.CUSTOMER, reason)
+    }
+
     @Transactional(readOnly = true)
     override fun hasBlockingConflict(providerId: UUID, start: Instant, end: Instant) = bookings.existsBlockingConflict(providerId, start, end)
 
-    private fun details(booking: Booking) = BookingDetails(booking, selections.requestSnapshot(booking.requestId), identity.accountPhone(booking.customerId))
+    private fun details(booking: Booking) = BookingDetails(booking, selections.requestSnapshot(booking.requestId), identity.accountPhone(booking.customerId), history.findByBookingId(booking.id))
+
+    private fun lockedProviderBooking(providerId: UUID, bookingId: UUID): Booking {
+        val booking = bookings.findByIdForUpdate(bookingId) ?: throw BookingNotFoundException()
+        if (booking.providerId != providerId) throw BookingNotOwnedException()
+        return booking
+    }
+
+    private fun lockedCustomerBooking(customerId: UUID, bookingId: UUID): Booking {
+        val booking = bookings.findByIdForUpdate(bookingId) ?: throw BookingNotFoundException()
+        if (booking.customerId != customerId) throw BookingNotOwnedException()
+        return booking
+    }
+
+    private fun requireActive(accountId: UUID) {
+        if (identity.accountStatus(accountId) != AccountStatus.ACTIVE) throw BookingActorInactiveException()
+    }
+
+    private fun persistTransition(transition: BookingTransition, actorId: UUID, context: BookingActorContext, reason: String?): BookingDetails {
+        if (!transition.changed) return details(transition.booking)
+        val saved = bookings.save(transition.booking)
+        history.save(BookingStatusHistory(UUID.randomUUID(), saved.id, transition.fromStatus, saved.status, actorId, context, clock.instant(), reason))
+        return details(saved)
+    }
 
     private fun withinDeclaredAvailability(schedule: com.skilledservices.platform.profiles.domain.ProviderAvailability, start: Instant, end: Instant): Boolean {
         val localStart = start.atZone(ADDIS_ABABA)

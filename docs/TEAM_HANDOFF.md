@@ -15,7 +15,7 @@ The application is a Kotlin/Spring Boot modular monolith. Each business package 
 - `marketplace`: service categories, provider-category associations, approved-provider discovery/comparison.
 - `requests`: service requests, protected attachments, Direct Invitations, Posting Fee, provider job feed, proposals and activity events.
 - `shared`: ProblemDetail/correlation infrastructure, pagination, time and protected-object storage.
-- `booking`: transactional confirmation, authoritative provider-time reservation, and participant Booking queries.
+- `booking`: transactional confirmation, authoritative provider-time reservation, participant queries, lifecycle transitions, cancellation, and append-only status history.
 - `communication`, `administration`, `integration`: reserved placeholders; do not assume product behavior exists there.
 
 ## Rules contributors must preserve
@@ -40,18 +40,19 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 4. Verified Posting Fee publication, provider job feed, invitation responses and proposal submission/review/rejection/withdrawal.
 4.5. Google ID-token verification, explicit account linking, Google-only accounts, and platform JWT/session issuance.
 5. Transactional Proposal acceptance and Booking confirmation with PostgreSQL provider-schedule locking, conflict-aware discovery, post-confirmation privacy, and idempotency.
+6. Provider start/completion report, customer completion confirmation, customer pre-service cancellation, schedule release, filtered history, and lifecycle audit records.
 
 ## Not implemented
 
-- Booking start/completion/cancellation lifecycle and status history
 - Messaging and notifications
 - Ratings/reviews
 - Support cases
 - AI category suggestion
 - Final reporting/admin dashboards
 - A real production payment gateway
+- Provider-initiated cancellation policy and dispute intake/resolution workflow
 
-The next milestone is **Milestone 6 — Booking Lifecycle + Completion + Cancellation + History**.
+The next product milestone should select one approved later boundary (communication/support, ratings, or AI category suggestion) rather than extending Booking policy implicitly.
 
 ## Adding a feature
 
