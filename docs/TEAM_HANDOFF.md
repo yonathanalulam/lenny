@@ -68,6 +68,6 @@ Use this sequence:
 
 ## Team workflow
 
-`main` is the stable integration branch. Begin Milestone 5 from the `backend-m4-stable` tag (or its matching `main` commit), create a feature branch such as `feature/booking-milestone-5`, and merge through review. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery, Requests/Payments/Proposals, future Booking, future Communication/Support, and future Ratings/Admin/AI. Merge cross-module interface changes deliberately and keep commits scoped.
+`main` is the stable integration branch. After the Milestones 4.5–6 pull request is merged and tagged, begin later work from `backend-m6-stable` (or its matching `main` commit) and merge through review. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery, Requests/Payments/Proposals, Booking, future Communication/Support, and future Ratings/Admin/AI. Merge cross-module interface changes deliberately and keep commits scoped.
 
 Start with [README.md](../README.md), [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), [AUTHENTICATION.md](AUTHENTICATION.md), and [API_REFERENCE.md](API_REFERENCE.md).
