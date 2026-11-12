@@ -77,11 +77,12 @@ class ProviderDiscoveryController(private val service: ProviderDiscoveryService)
         @RequestParam(required = false) startTime: LocalTime?,
         @RequestParam(required = false) endTime: LocalTime?,
         @RequestParam(required = false) pricingText: String?,
+        @RequestParam(required = false) minRating: Double?,
         @RequestParam(defaultValue = "updatedAt,desc") sort: String,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): PageResponse<PublicProviderResponse> {
-        val result = service.search(ProviderDiscoveryFilter(categoryId, serviceArea, available, minExperience, requestedDate, startTime, endTime, pricingText, sort, page, size))
+        val result = service.search(ProviderDiscoveryFilter(categoryId, serviceArea, available, minExperience, requestedDate, startTime, endTime, pricingText, minRating, sort, page, size))
         return PageResponse(result.items.map { it.toResponse() }, result.page, result.size, result.totalItems, result.totalPages, result.hasNext)
     }
 

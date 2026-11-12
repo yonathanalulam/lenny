@@ -2,12 +2,12 @@
 
 Deployable Kotlin/Spring Boot backend for an Addis Ababa home-services marketplace. One modular-monolith REST API and one PostgreSQL database serve web, mobile, and future admin clients.
 
-This branch completes Milestones 1–7: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, proposals, transactional Booking lifecycle, and relationship-scoped communication/support/moderation workflows.
+This branch completes Milestones 1–8: native/Google platform sessions, profiles and verification, provider discovery, service requests and invitations, Posting Fee publication, proposals, transactional Booking lifecycle, communication/support, reciprocal feedback, administrator reporting, and advisory AI category suggestions.
 
 ## Stack and architecture
 
 - Kotlin, Java 21 toolchain, Spring Boot 4.1.2, MVC, Security and Data JPA
-- PostgreSQL 17, Flyway V1–V9, Testcontainers
+- PostgreSQL 17, Flyway V1–V10, Testcontainers
 - JWT access tokens plus opaque server-side refresh sessions
 - OpenAPI/Swagger, RFC 9457 ProblemDetail responses and correlation IDs
 - Modular-monolith packages with domain/application/API/infrastructure boundaries
@@ -28,7 +28,9 @@ Copy-Item .env.example .env
 docker compose up -d postgres
 
 $bytes = New-Object byte[] 48
-[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
 $env:JWT_SECRET_BASE64 = [Convert]::ToBase64String($bytes)
 
 .\gradlew.bat bootRun
@@ -55,8 +57,9 @@ Docker must be running because integration tests use real PostgreSQL rather than
 - [Executed Milestones 1–4 test report](docs/TEST_REPORT_MILESTONES_1_TO_4.md)
 - [Executed Milestones 4.5–6 test report](docs/TEST_REPORT_MILESTONES_4_5_TO_6.md)
 - [Executed Milestone 7 test report](docs/TEST_REPORT_MILESTONE_7.md)
+- [Executed Milestone 8 test report](docs/TEST_REPORT_MILESTONE_8.md)
 - [Frontend integration contract](docs/frontend-integration.md)
 - [Generated OpenAPI contract](docs/openapi.json)
 - [Postman collection and local environment](docs/postman/SkilledServices.postman_collection.json)
 
-Ratings/reviews, final admin reporting, advisory AI category suggestion, and service-payment processing remain later milestones. Support does not imply refunds, escrow, wallets, or provider-service payments.
+The Spring AI feature is disabled by default. Set `SPRING_AI_CHAT_MODEL=openai`, `OPENAI_API_KEY`, and optionally `OPENAI_CHAT_MODEL` to enable advisory suggestions; customers always make the authoritative category selection. The backend does not implement provider service payments, escrow, wallets, payouts, automatic final pricing, government/background checking, or autonomous AI decisions.

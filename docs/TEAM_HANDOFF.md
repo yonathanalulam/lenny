@@ -17,7 +17,9 @@ The application is a Kotlin/Spring Boot modular monolith. Each business package 
 - `shared`: ProblemDetail/correlation infrastructure, pagination, time, protected-object storage, notification and interaction-policy ports.
 - `booking`: transactional confirmation, authoritative provider-time reservation, participant queries, lifecycle transitions, cancellation, and append-only status history.
 - `communication`: conversations/messages, persistent notifications, blocks, reports, support/disputes, account preferences, moderation, and safe audit events.
-- `administration`, `integration`: reserved placeholders; Milestone 8 admin read models and Spring AI adapters belong here without bypassing owning application services.
+- `feedback`: reciprocal completed-service feedback, provider rating aggregates/public reviews, and feedback moderation.
+- `administration`: dashboard and audit read models; mutations continue through owning module services.
+- `integration`: external adapters, currently the optional provider-neutral Spring AI `ChatModel` category suggester.
 
 ## Rules contributors must preserve
 
@@ -43,16 +45,16 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 5. Transactional Proposal acceptance and Booking confirmation with PostgreSQL provider-schedule locking, conflict-aware discovery, post-confirmation privacy, and idempotency.
 6. Provider start/completion report, customer completion confirmation, customer pre-service cancellation, schedule release, filtered history, and lifecycle audit records.
 7. Relationship-scoped messaging, in-app notifications, blocking/reporting, Booking-linked support/disputes, admin moderation, audit facts, and AM/EN account preferences.
+8. Reciprocal completed-Booking feedback, provider rating discovery, admin dashboard/audit/account status operations, and advisory Spring AI category suggestion.
 
 ## Not implemented
 
-- Ratings/reviews
-- AI category suggestion
-- Final reporting/admin dashboards
 - A real production payment gateway
 - Provider-initiated cancellation policy and post-resolution Booking transition
+- Provider service payments, escrow, wallets, payouts, and automatic final pricing
+- Government/criminal-background checking and autonomous AI decisions
 
-The next approved gate is Milestone 8: reciprocal feedback, admin reporting/operations, and advisory Spring AI category suggestion.
+The approved feature scope through Milestone 8 is complete. Subsequent work should be release hardening, production integrations explicitly approved by product, or frontend/mobile integration—not speculative marketplace features.
 
 ## Adding a feature
 
@@ -68,6 +70,6 @@ Use this sequence:
 
 ## Team workflow
 
-`main` is the stable integration branch. After the Milestones 4.5–6 pull request is merged and tagged, begin later work from `backend-m6-stable` (or its matching `main` commit) and merge through review. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery, Requests/Payments/Proposals, Booking, future Communication/Support, and future Ratings/Admin/AI. Merge cross-module interface changes deliberately and keep commits scoped.
+`main` is the stable integration branch. This release branch began at `backend-m6-stable`; merge its scoped Milestone 7 and Milestone 8 commits through review, then tag only the verified merge commit. Avoid parallel edits to the same aggregate/service. Suggested ownership areas are Identity/Auth, Profiles/Verification, Marketplace/Discovery/AI boundary, Requests/Payments/Proposals, Booking, Communication/Support, Feedback, and Administration reporting. Merge cross-module interface changes deliberately and keep commits scoped.
 
 Start with [README.md](../README.md), [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md), [AUTHENTICATION.md](AUTHENTICATION.md), and [API_REFERENCE.md](API_REFERENCE.md).

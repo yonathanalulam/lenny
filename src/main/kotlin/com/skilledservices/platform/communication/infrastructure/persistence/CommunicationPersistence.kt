@@ -1,6 +1,7 @@
 package com.skilledservices.platform.communication.infrastructure.persistence
 
 import com.skilledservices.platform.communication.domain.*
+import com.skilledservices.platform.shared.pagination.PageSlice
 import jakarta.persistence.*
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable

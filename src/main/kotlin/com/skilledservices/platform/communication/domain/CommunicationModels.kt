@@ -1,5 +1,6 @@
 package com.skilledservices.platform.communication.domain
 
+import com.skilledservices.platform.shared.pagination.PageSlice
 import java.time.Instant
 import java.util.UUID
 
@@ -99,8 +100,6 @@ data class PlatformAuditEvent(
     val subjectId: UUID,
     val occurredAt: Instant,
 )
-
-data class PageSlice<T>(val items: List<T>, val totalItems: Long)
 
 interface ConversationStore {
     fun save(conversation: Conversation): Conversation

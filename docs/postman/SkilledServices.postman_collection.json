@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "7e0485c4-e2ab-4d06-bf39-00f4dca00392",
-    "name": "Skilled Services API - Milestones 1-4",
-    "description": "Import with the local environment template. Run Health, then the Auth folders in order. Registration pre-request scripts generate disposable emails. Set admin credentials/IDs manually where a preceding request cannot discover them. No Booking, proposal acceptance, or Google OAuth APIs exist.",
+    "name": "Skilled Services API - Milestones 1-8",
+    "description": "Import with the local environment template. Run Health, then Auth and onboarding in order. Registration scripts generate disposable emails. Set administrator credentials and fixture IDs where a preceding request cannot discover them. AI suggestion is optional and advisory.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -173,6 +173,30 @@
         { "name": "Open Booking dispute", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) pm.environment.set('supportCaseId', pm.response.json().id);"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"bookingId\": \"{{bookingId}}\", \"type\": \"BOOKING_DISPUTE\", \"description\": \"Please review this Booking.\" }" }, "url": "{{baseUrl}}/api/v1/me/support-cases" } },
         { "name": "Admin list support cases", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/support-cases?page=0&size=20" } },
         { "name": "Admin start case review", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"IN_REVIEW\", \"internalNote\": \"Investigation started.\" }" }, "url": "{{baseUrl}}/api/v1/admin/support-cases/{{supportCaseId}}/review" } }
+      ]
+    },
+    {
+      "name": "19. Feedback and Ratings",
+      "item": [
+        { "name": "Customer rates completed provider", "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) pm.environment.set('feedbackId', pm.response.json().id);"] } }], "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"rating\": 5, \"comment\": \"Reliable and professional.\" }" }, "url": "{{baseUrl}}/api/v1/customers/me/bookings/{{bookingId}}/provider-feedback" } },
+        { "name": "Provider rates completed customer", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"rating\": 5, \"comment\": \"Easy to work with.\" }" }, "url": "{{baseUrl}}/api/v1/providers/me/bookings/{{bookingId}}/customer-feedback" } },
+        { "name": "Public provider reviews", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/providers/{{providerId}}/reviews?page=0&size=20" } },
+        { "name": "Discover by minimum rating", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/providers?minRating=4&sort=rating,desc&page=0&size=20" } },
+        { "name": "Admin hide feedback", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"visible\": false, \"reason\": \"Moderation review\" }" }, "url": "{{baseUrl}}/api/v1/admin/feedback/{{feedbackId}}/moderation" } }
+      ]
+    },
+    {
+      "name": "20. Administration Reporting",
+      "item": [
+        { "name": "Dashboard aggregates", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/dashboard" } },
+        { "name": "Audit events", "request": { "method": "GET", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "url": "{{baseUrl}}/api/v1/admin/audit-events?page=0&size=20" } },
+        { "name": "Suspend account", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"status\": \"SUSPENDED\" }" }, "url": "{{baseUrl}}/api/v1/admin/accounts/{{providerId}}/status" } }
+      ]
+    },
+    {
+      "name": "21. Advisory Category Suggestion",
+      "item": [
+        { "name": "Suggest an active category", "request": { "method": "POST", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerAccessToken}}", "type": "string" }] }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"description\": \"I need help repairing a leaking kitchen pipe.\" }" }, "url": "{{baseUrl}}/api/v1/customers/me/category-suggestions" } }
       ]
     }
   ]

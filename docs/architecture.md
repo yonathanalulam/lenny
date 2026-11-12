@@ -12,8 +12,9 @@ The platform is one Spring Boot modular monolith. Website, mobile, and administr
 | Requests, Invitations, Proposals & Posting Fee | `requests` | Verified Posting Fee publication, provider job feed, invitation responses, and proposal review lifecycle implemented |
 | Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, lifecycle, cancellation, and history implemented |
 | Communication & Support | `communication` | Relationship-scoped messaging, notifications, blocking/reporting, support/disputes, preferences, and moderation implemented |
-| Administration, Audit & Reporting | `administration` | Boundary reserved |
-| Integration Adapters | `integration` | Boundary reserved |
+| Reciprocal Feedback | `feedback` | Completed-Booking feedback, public provider aggregates/reviews, and moderation implemented |
+| Administration, Audit & Reporting | `administration` | Read-only dashboard/audit projections implemented; identity owns account-status mutation |
+| Integration Adapters | `integration` | Provider-neutral Spring AI category-suggestion adapter implemented |
 
 Within a business module, `api` owns transport DTOs, `application` owns use-case orchestration, `domain` owns state and ports, and `infrastructure` implements persistence or provider-facing contracts. A module must call another module through an explicit application/domain interface; it must not write that module's tables.
 
@@ -94,3 +95,12 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 - A Booking dispute creates a real `support_cases` record and transitions an eligible Booking to `UNDER_REVIEW` in one transaction. Resolution records the support outcome but deliberately leaves the historical Booking in `UNDER_REVIEW`; no financial/refund behavior exists.
 - `platform_audit_events` contains only safe identifiers and event types. Message bodies, report/support descriptions, evidence, and protected data are never copied into audit events.
 - Account preferences persist only `AM`/`EN` and notification-category switches. Arbitrary user content is not translated.
+
+## Feedback, administration, and AI
+
+- `feedback` accepts exactly one rating in each permitted direction for a `COMPLETED` Booking. The Booking module exposes a read-only participant/state query; Feedback never mutates Booking persistence.
+- Public provider averages and counts include only visible customer-to-provider feedback. Unrated providers use `averageRating=null` and `ratingCount=0`; provider-to-customer feedback is never mixed into discovery scores.
+- Moderation hides/restores public text and aggregate participation while retaining the original record, score, actor, reason, and timestamps for audit.
+- `administration` is read-only reporting infrastructure over PostgreSQL projections. Cross-module state changes use owning application services, such as Identity's account administration service, which revokes refresh sessions and increments credential version.
+- Category suggestion application code owns `CategorySuggestionPort`. The `integration.ai` adapter uses Spring AI's provider-neutral `ChatModel`; it receives only the description and active category candidates, returns structured data, and is disabled by default.
+- AI output is advisory and must match an active category ID. Invalid, malformed, inactive, or unavailable output fails safely without creating a request or persisting a choice.

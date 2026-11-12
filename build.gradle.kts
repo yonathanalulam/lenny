@@ -36,6 +36,8 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation(platform("org.springdoc:springdoc-openapi-bom:3.2.0"))
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui")
+    implementation(platform("org.springframework.ai:spring-ai-bom:2.0.2"))
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
     runtimeOnly("org.postgresql:postgresql")
 

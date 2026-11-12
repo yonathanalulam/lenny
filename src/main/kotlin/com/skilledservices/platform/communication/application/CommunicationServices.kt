@@ -3,9 +3,12 @@ package com.skilledservices.platform.communication.application
 import com.skilledservices.platform.booking.application.BookingDisputePort
 import com.skilledservices.platform.communication.domain.*
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.shared.pagination.PageSlice
 import com.skilledservices.platform.shared.events.PlatformNotification
 import com.skilledservices.platform.shared.events.PlatformNotificationPort
 import com.skilledservices.platform.shared.events.MarketplaceInteractionPolicy
+import com.skilledservices.platform.shared.events.PlatformAuditCommand
+import com.skilledservices.platform.shared.events.PlatformAuditPort
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -342,6 +345,15 @@ class PreferencesService(private val store: AccountPreferencesStore, private val
         command.supportNotificationsEnabled, clock.instant()))
 
     private fun defaults(accountId: UUID) = AccountPreferences(accountId, PreferredLanguage.EN, true, true, true, Instant.EPOCH)
+}
+
+@Service
+class PlatformAuditService(private val store: PlatformAuditStore, private val clock: Clock) : PlatformAuditPort {
+    @Transactional
+    override fun record(command: PlatformAuditCommand) {
+        store.save(PlatformAuditEvent(UUID.randomUUID(), command.actorAccountId, command.eventType,
+            command.subjectType, command.subjectId, clock.instant()))
+    }
 }
 
 private fun validPage(page: Int): Int {

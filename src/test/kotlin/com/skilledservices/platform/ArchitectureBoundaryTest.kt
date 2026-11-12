@@ -15,7 +15,9 @@ class ArchitectureBoundaryTest {
             .flatMap { directory -> Files.walk(directory).use { paths -> paths.filter { it.extension == "kt" }.toList() } }
         val bookingFiles = Files.walk(root.resolve("booking")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
         val communicationFiles = Files.walk(root.resolve("communication")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
-        (marketplaceAndRequests + bookingFiles + communicationFiles).forEach { file ->
+        val feedbackFiles = Files.walk(root.resolve("feedback")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
+        val administrationFiles = Files.walk(root.resolve("administration")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
+        (marketplaceAndRequests + bookingFiles + communicationFiles + feedbackFiles + administrationFiles).forEach { file ->
             val source = Files.readString(file)
             assertFalse(source.contains("profiles.infrastructure.persistence"), "$file must not depend on verification persistence")
             if (file.toString().contains("${java.io.File.separator}api${java.io.File.separator}")) {
@@ -61,6 +63,14 @@ class ArchitectureBoundaryTest {
         assertTrue(communicationService.contains("MarketplaceRelationshipQuery"), "Communication relationship authorization must use an explicit read boundary")
         val requestServiceSource = Files.readString(root.resolve("requests/application/RequestService.kt"))
         assertTrue(requestServiceSource.contains("MarketplaceInteractionPolicy"), "Direct Invitations must enforce the shared blocking policy")
+        val feedbackService = Files.readString(root.resolve("feedback/application/FeedbackService.kt"))
+        assertTrue(feedbackService.contains("BookingFeedbackQuery"), "Feedback must read Booking eligibility through the Booking-owned query boundary")
+        assertFalse(feedbackService.contains("booking.infrastructure"), "Feedback must not access Booking persistence")
+        val suggestionService = Files.readString(root.resolve("marketplace/application/CategorySuggestionService.kt"))
+        assertTrue(suggestionService.contains("CategorySuggestionPort"), "AI category suggestion must retain a project-owned port")
+        assertFalse(suggestionService.contains("org.springframework.ai"), "Marketplace application code must not depend on Spring AI internals")
+        val aiAdapter = Files.readString(root.resolve("integration/ai/SpringAiCategorySuggestionAdapter.kt"))
+        assertTrue(aiAdapter.contains("org.springframework.ai.chat.model.ChatModel"), "Spring AI integration must remain in the integration adapter")
         val identityApplication = Files.walk(root.resolve("identity/application")).use { paths -> paths.filter { it.extension == "kt" }.toList() }
         identityApplication.forEach { file ->
             val source = Files.readString(file)

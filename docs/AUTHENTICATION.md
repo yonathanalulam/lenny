@@ -135,7 +135,9 @@ All errors use `application/problem+json` and include a stable `code` and correl
 
 ```powershell
 $bytes = New-Object byte[] 48
-[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+$rng.Dispose()
 $env:JWT_SECRET_BASE64 = [Convert]::ToBase64String($bytes)
 ```
 

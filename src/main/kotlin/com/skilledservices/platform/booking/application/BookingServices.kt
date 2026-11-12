@@ -25,6 +25,17 @@ interface BookingDisputePort {
     fun openDispute(actorId: UUID, bookingId: UUID, supportCaseId: UUID)
 }
 
+data class BookingFeedbackContext(
+    val bookingId: UUID,
+    val customerId: UUID,
+    val providerId: UUID,
+    val status: BookingStatus,
+)
+
+interface BookingFeedbackQuery {
+    fun context(bookingId: UUID): BookingFeedbackContext?
+}
+
 @Service
 class BookingService(
     private val bookings: BookingStore,
@@ -36,7 +47,7 @@ class BookingService(
     private val identity: IdentityAccountQuery,
     private val notifications: PlatformNotificationPort,
     private val clock: Clock,
-) : ProviderBookingAvailabilityQuery, BookingDisputePort {
+) : ProviderBookingAvailabilityQuery, BookingDisputePort, BookingFeedbackQuery {
     @Transactional
     fun confirm(customerId: UUID, proposalId: UUID, command: ConfirmBookingCommand): BookingDetails {
         val start = command.scheduledStart.toInstant()
@@ -138,6 +149,11 @@ class BookingService(
 
     @Transactional(readOnly = true)
     override fun hasBlockingConflict(providerId: UUID, start: Instant, end: Instant) = bookings.existsBlockingConflict(providerId, start, end)
+
+    @Transactional(readOnly = true)
+    override fun context(bookingId: UUID) = bookings.findById(bookingId)?.let {
+        BookingFeedbackContext(it.id, it.customerId, it.providerId, it.status)
+    }
 
     @Transactional
     override fun openDispute(actorId: UUID, bookingId: UUID, supportCaseId: UUID) {

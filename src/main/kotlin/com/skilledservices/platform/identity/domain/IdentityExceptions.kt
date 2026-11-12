@@ -20,6 +20,9 @@ class InactiveAccountException :
 class AccountNotFoundException :
     IdentityException("The authenticated account no longer exists", "identity.account_not_found")
 
+class AccountStatusChangeInvalidException(message: String) :
+    IdentityException(message, "identity.account_status_change_invalid")
+
 class GoogleAuthUnavailableException : IdentityException("Google authentication is not configured", "identity.google_auth_unavailable")
 class GoogleTokenInvalidException : IdentityException("The Google ID token is invalid", "identity.google_token_invalid")
 class GoogleTokenExpiredException : IdentityException("The Google ID token is expired", "identity.google_token_expired")
