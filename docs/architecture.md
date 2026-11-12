@@ -11,9 +11,10 @@ The platform is one Spring Boot modular monolith. Website, mobile, and administr
 | Marketplace Discovery | `marketplace` | Categories, provider-category assignments, approved-provider discovery, and comparison implemented |
 | Requests, Invitations, Proposals & Posting Fee | `requests` | Verified Posting Fee publication, provider job feed, invitation responses, and proposal review lifecycle implemented |
 | Booking & Service Lifecycle | `booking` | Transactional confirmation, provider schedule reservation, lifecycle, cancellation, and history implemented |
-| Communication & Support | `communication` | Boundary reserved |
-| Administration, Audit & Reporting | `administration` | Boundary reserved |
-| Integration Adapters | `integration` | Boundary reserved |
+| Communication & Support | `communication` | Relationship-scoped messaging, notifications, blocking/reporting, support/disputes, preferences, and moderation implemented |
+| Reciprocal Feedback | `feedback` | Completed-Booking feedback, public provider aggregates/reviews, and moderation implemented |
+| Administration, Audit & Reporting | `administration` | Read-only dashboard/audit projections implemented; identity owns account-status mutation |
+| Integration Adapters | `integration` | Provider-neutral Spring AI category-suggestion adapter implemented |
 
 Within a business module, `api` owns transport DTOs, `application` owns use-case orchestration, `domain` owns state and ports, and `infrastructure` implements persistence or provider-facing contracts. A module must call another module through an explicit application/domain interface; it must not write that module's tables.
 
@@ -78,9 +79,36 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 
 ## Booking lifecycle and history
 
-- The aggregate owns `CONFIRMED -> IN_PROGRESS -> COMPLETION_PENDING -> COMPLETED`; controllers cannot assign state directly. `UNDER_REVIEW` remains a reserved lifecycle boundary because dispute intake policy is not sufficiently specified.
+- The aggregate owns `CONFIRMED -> IN_PROGRESS -> COMPLETION_PENDING -> COMPLETED`; controllers cannot assign state directly. The Communication application calls the Booking-owned `BookingDisputePort` to move an eligible participant Booking to `UNDER_REVIEW` atomically with append-only history.
 - The provider starts and reports completion. The customer confirms completion. Repeating an operation already at its target state is idempotent and does not append duplicate history.
 - Customer cancellation is allowed only from `CONFIRMED`. It retains the Booking, actor, timestamp, safe reason, and history. Provider-initiated cancellation is deferred pending approved policy.
 - `booking_status_history` is append-only through its store and is the authoritative transition audit. Broad marketplace activity is not duplicated for every lifecycle transition.
 - All statuses except `CANCELLED` remain blocking for interval conflict purposes. Cancellation therefore releases provider time without deleting service history.
 - Marketplace eligibility gates new participation, not access to an already confirmed Booking. Active-account security still gates lifecycle actions.
+
+## Communication, support, and moderation
+
+- A Conversation exists only for a proven request/Proposal/invitation or Booking relationship. `MarketplaceRelationshipQuery` is a read-only projection; Communication never mutates Requests or Booking tables.
+- Conversation and Message DTOs contain identifiers and user-authored body text only. They do not duplicate phone numbers, exact locations, verification evidence, credentials, admin notes, or storage references.
+- Message history, conversations, notifications, reports, and support cases use deterministic database pagination. Blocking prevents new messages, Direct Invitations, and Proposals but never deletes historical messages, Bookings, or support evidence.
+- In-app notifications are persistent and polling-compatible. `PlatformNotificationPort` decouples existing marketplace modules from the Communication persistence adapter. No SMS, email, push, WebSocket, or SSE provider is implied.
+- A Booking dispute creates a real `support_cases` record and transitions an eligible Booking to `UNDER_REVIEW` in one transaction. Resolution records the support outcome but deliberately leaves the historical Booking in `UNDER_REVIEW`; no financial/refund behavior exists.
+- `platform_audit_events` contains only safe identifiers and event types. Message bodies, report/support descriptions, evidence, and protected data are never copied into audit events.
+- Account preferences persist only `AM`/`EN` and notification-category switches. Arbitrary user content is not translated.
+
+## Feedback, administration, and AI
+
+- `feedback` accepts exactly one rating in each permitted direction for a `COMPLETED` Booking. The Booking module exposes a read-only participant/state query; Feedback never mutates Booking persistence.
+- Public provider averages and counts include only visible customer-to-provider feedback. Unrated providers use `averageRating=null` and `ratingCount=0`; provider-to-customer feedback is never mixed into discovery scores.
+- Moderation hides/restores public text and aggregate participation while retaining the original record, score, actor, reason, and timestamps for audit.
+- `administration` is read-only reporting infrastructure over PostgreSQL projections. Cross-module state changes use owning application services, such as Identity's account administration service, which revokes refresh sessions and increments credential version.
+- Category suggestion application code owns `CategorySuggestionPort`. The `integration.ai` adapter uses Spring AI's provider-neutral `ChatModel`; it receives only the description and active category candidates, returns structured data, and is disabled by default.
+- AI output is advisory and must match an active category ID. Invalid, malformed, inactive, or unavailable output fails safely without creating a request or persisting a choice.
+
+## Query and pagination hardening
+
+- Booking participant lists apply status filtering, deterministic ordering, count, limit, and offset in PostgreSQL before enriching only the returned page.
+- Provider discovery batches account status, marketplace approval, availability, category assignments, category definitions, and rating aggregates; query count no longer grows per candidate provider.
+- The provider Job Posting feed computes the caller's eligibility context once and batch-loads attachments for the returned page rather than querying per job.
+- Message and notification history, feedback lists, support/report queues, and audit events remain database-paginated. Rating aggregates use one grouped query over the requested provider IDs.
+- V11 adds focused participant-list and open-job ordering indexes; no speculative cache, search engine, or additional datastore was introduced.

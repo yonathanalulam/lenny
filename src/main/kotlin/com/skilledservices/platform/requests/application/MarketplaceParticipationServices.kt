@@ -9,6 +9,9 @@ import com.skilledservices.platform.profiles.application.ProviderDiscoveryProfil
 import com.skilledservices.platform.profiles.application.ProviderEligibilityService
 import com.skilledservices.platform.requests.domain.*
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
+import com.skilledservices.platform.shared.events.MarketplaceInteractionPolicy
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -40,6 +43,23 @@ class ProviderRequestEligibility(
         return area.contains("addis ababa") || area.contains(requestedArea) || requestedArea.contains(area)
     }
 
+    fun eligibleJobs(providerId: UUID, requests: List<ServiceRequest>): List<ServiceRequest> {
+        requireMarketplace(providerId)
+        val categoryMap = categories.findAll().filter { it.active }.associateBy { it.id }
+        val offered = assignments.findByProviderId(providerId).map { it.categoryId }.toSet()
+        val area = profiles.findByProviderId(providerId)?.serviceArea?.trim()?.lowercase() ?: return emptyList()
+        return requests.filter { request ->
+            val requested = categoryMap[request.categoryId] ?: return@filter false
+            val categoryMatch = offered.any { offeredId ->
+                val offeredCategory = categoryMap[offeredId]
+                offeredCategory != null && (offeredCategory.id == requested.id ||
+                    (requested.parentId == null && offeredCategory.parentId == requested.id))
+            }
+            val requestedArea = request.generalArea.trim().lowercase()
+            categoryMatch && (area.contains("addis ababa") || area.contains(requestedArea) || requestedArea.contains(area))
+        }
+    }
+
     fun profile(providerId: UUID): DiscoverableProviderProfile? = profiles.findByProviderId(providerId)
 }
 
@@ -53,14 +73,15 @@ class ProviderJobService(
 ) {
     @Transactional(readOnly = true)
     fun list(providerId: UUID, page: Int, size: Int): PageResponse<ProviderJobDetails> {
-        providerEligibility.requireMarketplace(providerId)
         requirePage(page, size)
-        val all = requests.findOpenJobPostings().filter { providerEligibility.isEligibleFor(providerId, it) }
-            .map { ProviderJobDetails(it, attachments.findByRequestId(it.id)) }
-        val from = (page * size).coerceAtMost(all.size)
-        val to = (from + size).coerceAtMost(all.size)
-        val pages = if (all.isEmpty()) 0 else (all.size + size - 1) / size
-        return PageResponse(all.subList(from, to), page, size, all.size.toLong(), pages, page + 1 < pages)
+        val eligible = providerEligibility.eligibleJobs(providerId, requests.findOpenJobPostings())
+        val from = (page * size).coerceAtMost(eligible.size)
+        val to = (from + size).coerceAtMost(eligible.size)
+        val pageRequests = eligible.subList(from, to)
+        val attachmentMap = attachments.findByRequestIds(pageRequests.map { it.id }.toSet())
+        val items = pageRequests.map { ProviderJobDetails(it, attachmentMap[it.id].orEmpty()) }
+        val pages = if (eligible.isEmpty()) 0 else (eligible.size + size - 1) / size
+        return PageResponse(items, page, size, eligible.size.toLong(), pages, page + 1 < pages)
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +102,7 @@ class InvitationResponseService(
     private val requests: ServiceRequestStore,
     private val providerEligibility: ProviderRequestEligibility,
     private val activities: MarketplaceActivityStore,
+    private val notifications: PlatformNotificationPort,
     private val clock: Clock,
 ) {
     @Transactional
@@ -101,6 +123,10 @@ class InvitationResponseService(
         val saved = invitations.save(invitation.copy(status = target, updatedAt = now))
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "INVITATION", saved.id,
             if (target == InvitationStatus.ACCEPTED) "INVITATION_ACCEPTED" else "INVITATION_DECLINED", providerId, now))
+        notifications.publish(PlatformNotification(request.customerId,
+            if (target == InvitationStatus.ACCEPTED) "INVITATION_ACCEPTED" else "INVITATION_DECLINED",
+            if (target == InvitationStatus.ACCEPTED) "Invitation accepted" else "Invitation declined",
+            "A provider responded to your service invitation.", "INVITATION", saved.id))
         return saved
     }
 }
@@ -122,12 +148,15 @@ class ProposalService(
     private val providerEligibility: ProviderRequestEligibility,
     private val identity: IdentityAccountQuery,
     private val activities: MarketplaceActivityStore,
+    private val notifications: PlatformNotificationPort,
+    private val interactionPolicy: MarketplaceInteractionPolicy,
     private val clock: Clock,
 ) {
     @Transactional
     fun submit(providerId: UUID, requestId: UUID, command: SubmitProposalCommand): Proposal {
         providerEligibility.requireMarketplace(providerId)
         val request = requests.findByIdForUpdate(requestId) ?: throw RequestNotFoundException()
+        interactionPolicy.requireAllowed(providerId, request.customerId)
         if (request.status != ServiceRequestStatus.OPEN) throw JobNotOpenException()
         when (request.type) {
             ServiceRequestType.DIRECT_INVITATION -> {
@@ -149,6 +178,8 @@ class ProposalService(
                 ProposalStatus.PENDING, now, now, null, null))
         } catch (_: DataIntegrityViolationException) { throw ProposalAlreadyExistsException() }
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "PROPOSAL", proposal.id, "PROPOSAL_SUBMITTED", providerId, now))
+        notifications.publish(PlatformNotification(request.customerId, "PROPOSAL_RECEIVED", "Proposal received",
+            "A provider submitted a proposal for your service request.", "PROPOSAL", proposal.id))
         return proposal
     }
 
@@ -191,6 +222,8 @@ class ProposalService(
         val now = clock.instant()
         val saved = proposals.save(proposal.copy(status = ProposalStatus.REJECTED, updatedAt = now, rejectedAt = now))
         activities.save(MarketplaceActivityEvent(UUID.randomUUID(), "PROPOSAL", saved.id, "PROPOSAL_REJECTED", customerId, now))
+        notifications.publish(PlatformNotification(saved.providerId, "PROPOSAL_REJECTED", "Proposal not selected",
+            "A customer rejected your proposal.", "PROPOSAL", saved.id))
         return saved
     }
 

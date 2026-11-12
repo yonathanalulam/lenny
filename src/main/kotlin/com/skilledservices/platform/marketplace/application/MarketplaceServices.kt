@@ -10,6 +10,8 @@ import com.skilledservices.platform.profiles.application.ProviderEligibilityServ
 import com.skilledservices.platform.profiles.domain.AvailabilityRange
 import com.skilledservices.platform.shared.api.PageResponse
 import com.skilledservices.platform.booking.application.ProviderBookingAvailabilityQuery
+import com.skilledservices.platform.feedback.domain.ProviderRatingAggregate
+import com.skilledservices.platform.feedback.domain.ProviderRatingQuery
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -103,13 +105,15 @@ class ProviderCategoryService(
 data class ProviderDiscoveryFilter(
     val categoryId: UUID?, val serviceArea: String?, val available: Boolean?, val minExperience: Int?,
     val requestedDate: LocalDate?, val startTime: LocalTime?, val endTime: LocalTime?, val pricingText: String?,
-    val sort: String, val page: Int, val size: Int,
+    val minRating: Double?, val sort: String, val page: Int, val size: Int,
 )
 
 data class PublicProvider(
     val profile: DiscoverableProviderProfile,
     val categories: List<ServiceCategory>,
     val verificationApproved: Boolean = true,
+    val averageRating: Double? = null,
+    val ratingCount: Long = 0,
 )
 
 @Service
@@ -120,19 +124,32 @@ class ProviderDiscoveryService(
     private val categoryStore: ServiceCategoryStore,
     private val assignmentStore: ProviderCategoryStore,
     private val bookingAvailability: ProviderBookingAvailabilityQuery,
+    private val ratings: ProviderRatingQuery,
 ) {
     @Transactional(readOnly = true)
     fun search(filter: ProviderDiscoveryFilter): PageResponse<PublicProvider> {
         if (filter.page < 0 || filter.size !in 1..100) throw CategoryInvalidException("page must be non-negative and size must be between 1 and 100")
         if (filter.minExperience != null && filter.minExperience !in 0..80) throw CategoryInvalidException("minExperience must be between 0 and 80")
+        if (filter.minRating != null && filter.minRating !in 1.0..5.0) throw CategoryInvalidException("minRating must be between 1 and 5")
         if ((filter.startTime == null) != (filter.endTime == null) || (filter.startTime != null && filter.startTime >= filter.endTime)) throw CategoryInvalidException("A valid availability time range is required")
         val allowedCategories = filter.categoryId?.let(::categoryAndChildren)
-        var results = profiles.findAll().mapNotNull { publicProvider(it) }
+        val allProfiles = profiles.findAll()
+        val providerIds = allProfiles.map { it.providerId }.toSet()
+        val activeAccounts = identity.accountStatuses(providerIds).filterValues { it == AccountStatus.ACTIVE }.keys
+        val eligibleProviders = eligibility.eligibleProviderIds(providerIds)
+        val categoryMap = categoryStore.findAll().associateBy { it.id }
+        val assignments = assignmentStore.findByProviderIds(providerIds).groupBy { it.providerId }
+        val ratingMap = ratings.aggregates(providerIds)
+        var results = allProfiles.mapNotNull { profile ->
+            if (profile.providerId !in activeAccounts || profile.providerId !in eligibleProviders) null
+            else publicProvider(profile, ratingMap[profile.providerId], assignments[profile.providerId].orEmpty(), categoryMap)
+        }
         results = results.filter { result ->
             (allowedCategories == null || result.categories.any { it.id in allowedCategories }) &&
                 (filter.serviceArea.isNullOrBlank() || result.profile.serviceArea.contains(filter.serviceArea.trim(), true)) &&
                 (filter.available == null || result.profile.available == filter.available) &&
                 (filter.minExperience == null || result.profile.experienceYears >= filter.minExperience) &&
+                (filter.minRating == null || (result.averageRating != null && result.averageRating >= filter.minRating)) &&
                 (filter.pricingText.isNullOrBlank() || result.profile.pricingSummary.contains(filter.pricingText.trim(), true)) &&
                 matchesAvailability(result.profile, filter)
         }
@@ -141,6 +158,8 @@ class ProviderDiscoveryService(
             "updatedAt,asc" -> results.sortedWith(compareBy<PublicProvider> { it.profile.profileUpdatedAt }.thenBy { it.profile.providerId })
             "experience,desc" -> results.sortedWith(compareByDescending<PublicProvider> { it.profile.experienceYears }.thenBy { it.profile.providerId })
             "experience,asc" -> results.sortedWith(compareBy<PublicProvider> { it.profile.experienceYears }.thenBy { it.profile.providerId })
+            "rating,desc" -> results.sortedWith(compareByDescending<PublicProvider> { it.averageRating ?: -1.0 }.thenBy { it.profile.providerId })
+            "rating,asc" -> results.sortedWith(compareBy<PublicProvider> { it.averageRating ?: Double.MAX_VALUE }.thenBy { it.profile.providerId })
             else -> throw UnsupportedProviderSortException()
         }
         val from = (filter.page * filter.size).coerceAtMost(results.size)
@@ -150,7 +169,8 @@ class ProviderDiscoveryService(
     }
 
     @Transactional(readOnly = true)
-    fun get(providerId: UUID): PublicProvider = profiles.findByProviderId(providerId)?.let(::publicProvider) ?: throw ProviderNotPublicException()
+    fun get(providerId: UUID): PublicProvider = profiles.findByProviderId(providerId)
+        ?.let { publicProvider(it, ratings.aggregates(setOf(providerId))[providerId]) } ?: throw ProviderNotPublicException()
 
     @Transactional(readOnly = true)
     fun compare(ids: List<UUID>): List<PublicProvider> {
@@ -158,10 +178,17 @@ class ProviderDiscoveryService(
         return ids.distinct().map(::get)
     }
 
-    private fun publicProvider(profile: DiscoverableProviderProfile): PublicProvider? {
+    private fun publicProvider(profile: DiscoverableProviderProfile, rating: ProviderRatingAggregate?): PublicProvider? {
         if (identity.accountStatus(profile.providerId) != AccountStatus.ACTIVE || !eligibility.isMarketplaceEligible(profile.providerId)) return null
-        val categories = assignmentStore.findByProviderId(profile.providerId).mapNotNull { categoryStore.findById(it.categoryId) }.filter { it.active }
-        return categories.takeIf { it.isNotEmpty() }?.let { PublicProvider(profile, it.sortedBy { c -> c.nameEn.lowercase() }) }
+        return publicProvider(profile, rating, assignmentStore.findByProviderId(profile.providerId),
+            categoryStore.findAll().associateBy { it.id })
+    }
+
+    private fun publicProvider(profile: DiscoverableProviderProfile, rating: ProviderRatingAggregate?,
+        assignments: List<ProviderCategoryAssignment>, categoriesById: Map<UUID, ServiceCategory>): PublicProvider? {
+        val categories = assignments.mapNotNull { categoriesById[it.categoryId] }.filter { it.active }
+        return categories.takeIf { it.isNotEmpty() }?.let { PublicProvider(profile, it.sortedBy { c -> c.nameEn.lowercase() },
+            averageRating = rating?.averageRating, ratingCount = rating?.ratingCount ?: 0) }
     }
 
     private fun categoryAndChildren(categoryId: UUID): Set<UUID> {

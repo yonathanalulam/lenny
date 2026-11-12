@@ -30,6 +30,8 @@ interface ServiceCategoryStore {
 interface ProviderCategoryStore {
     fun replace(providerId: UUID, assignments: List<ProviderCategoryAssignment>): List<ProviderCategoryAssignment>
     fun findByProviderId(providerId: UUID): List<ProviderCategoryAssignment>
+    fun findByProviderIds(providerIds: Set<UUID>): List<ProviderCategoryAssignment> =
+        providerIds.flatMap(::findByProviderId)
     fun findByCategoryIds(categoryIds: Set<UUID>): List<ProviderCategoryAssignment>
 }
 
@@ -40,3 +42,5 @@ class CategoryInvalidException(message: String) : MarketplaceException("CATEGORY
 class CategoryDuplicateException : MarketplaceException("CATEGORY_DUPLICATE", "A category with this English name already exists under the same parent")
 class ProviderNotPublicException : MarketplaceException("PROVIDER_NOT_PUBLICLY_AVAILABLE", "Provider was not found")
 class UnsupportedProviderSortException : MarketplaceException("UNSUPPORTED_PROVIDER_SORT", "Unsupported provider sort")
+class AiSuggestionUnavailableException : MarketplaceException("AI_SUGGESTION_UNAVAILABLE", "AI category suggestion is temporarily unavailable")
+class AiSuggestionInvalidException : MarketplaceException("AI_SUGGESTION_INVALID", "AI returned an invalid category suggestion")

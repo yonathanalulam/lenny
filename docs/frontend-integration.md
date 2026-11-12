@@ -137,10 +137,11 @@ Discovery query parameters:
 - `minExperience` — 0–80.
 - `requestedDate`, with optional paired `startTime` and `endTime` — weekly schedule hint.
 - `pricingText` — case-insensitive match against the permitted pricing summary.
-- `sort` — `updatedAt,asc|desc` or `experience,asc|desc`.
+- `minRating` — 1–5; filters on visible customer-to-provider feedback aggregates.
+- `sort` — `updatedAt,asc|desc`, `experience,asc|desc`, or `rating,asc|desc`.
 - `page`, `size` — stable `PageResponse`, maximum size 100.
 
-Only approved providers with active accounts and at least one active category appear. Pending, rejected, deactivated, and inactive-category-only providers return no public profile. Public responses never contain email, phone, exact address, evidence, review notes, or protected-object keys. Ratings and rating sorting do not exist until the Ratings milestone.
+Only approved providers with active accounts and at least one active category appear. Pending, rejected, deactivated, and inactive-category-only providers return no public profile. Public responses never contain email, phone, exact address, evidence, moderation notes, or protected-object keys. Unrated providers return `averageRating=null` and `ratingCount=0`—do not render a fabricated zero-star score.
 
 Availability is a discovery hint, not a reservation. Booking must recheck availability later.
 
@@ -254,6 +255,39 @@ List endpoints accept an optional `status` enum filter and retain deterministic 
 Provider cancellation and dispute opening are intentionally absent pending approved policy. Do not synthesize either transition client-side.
 
 Additional stable errors include `POSTING_FEE_NOT_REQUIRED`, `POSTING_FEE_ALREADY_PAID`, `PAYMENT_PROVIDER_UNAVAILABLE`, `PAYMENT_INITIATION_FAILED`, `PAYMENT_VERIFICATION_FAILED`, `PAYMENT_AMOUNT_MISMATCH`, `PAYMENT_CALLBACK_INVALID`, `JOB_NOT_OPEN`, `JOB_NOT_ELIGIBLE`, `INVITATION_NOT_PENDING`, `INVITATION_NOT_OWNED`, `PROPOSAL_ALREADY_EXISTS`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_NOT_PENDING`, and `PROPOSAL_NOT_OWNED`.
+
+## Communication and notifications
+
+Open a conversation with `POST /me/conversations` using either `bookingId`, or `requestId` plus `counterpartAccountId` when a Job Posting still has multiple provider relationships. Then use `/me/conversations/{id}/messages` and `/read`. Conversation/message payloads intentionally omit exact location and phone data; after confirmation retrieve permitted contact/location only from the selected-provider Booking endpoint.
+
+Poll `GET /me/notifications?unreadOnly=true&page=0&size=20`. Mark one with `POST /me/notifications/{id}/read` or all with `/read-all`. Notification text is a safe UI hint; use `relatedEntityType`/`relatedEntityId` to navigate and then fetch the authoritative resource.
+
+Blocking is caller-scoped under `/me/blocks`. It disables new messages, invitations, and proposals between the pair, but the UI must continue showing historical messages and Booking obligations. Never imply that blocking automatically cancels a Booking.
+
+## Reports, support, and preferences
+
+Submit a report through `POST /me/reports` with a bounded category and, when available, `USER`, `REQUEST`, `BOOKING`, or `CONVERSATION` context. Users can see their own report status; only administrators can moderate.
+
+Create support via `POST /me/support-cases`. A `BOOKING_DISPUTE` requires `bookingId` and can move an eligible Booking to `UNDER_REVIEW`. The frontend must not promise refunds, escrow, payment reversal, or a particular post-resolution Booking transition. Participant case views never include `internalNote`.
+
+Use `GET|PUT /me/preferences` for `preferredLanguage` (`AM` or `EN`) and in-app notification switches. Stable codes/enums are localizable by web/mobile; message bodies, reviews, and other user content are not translated by the backend.
+
+## Feedback and ratings
+
+After a Booking reaches `COMPLETED`, show exactly one submission action to each participant:
+
+- Customer: `POST /customers/me/bookings/{bookingId}/provider-feedback`
+- Provider: `POST /providers/me/bookings/{bookingId}/customer-feedback`
+
+Send `rating` from 1–5 and an optional `comment`. Treat duplicate and non-completed responses as business conflicts; disabling a double tap is useful UX but the backend uniqueness constraint is authoritative. Public reviews come from `GET /providers/{providerId}/reviews` and use a privacy-safe reviewer label. Only visible customer-to-provider feedback affects provider discovery.
+
+## Administrator dashboard and audit
+
+Use `GET /admin/dashboard` for current aggregates and `GET /admin/audit-events?page=0&size=20` for newest-first audit activity; optional `actorId` and `eventType` filters are supported. Account status changes use `POST /admin/accounts/{accountId}/status`. A successful status change invalidates active credentials, so clients must handle subsequent 401 responses normally.
+
+## Advisory AI category suggestion
+
+Call `POST /customers/me/category-suggestions` after the customer enters at least 10 characters of service description. Present the returned active category as a suggestion only. The customer must be able to keep it, choose another category, or continue manually when the API returns `AI_SUGGESTION_INVALID` or `AI_SUGGESTION_UNAVAILABLE`. Do not create the request automatically: the later customer-selected `categoryId` is authoritative.
 # Google authentication
 
 Web/mobile obtains a Google **ID token** from the Google client SDK and sends it to `POST /api/v1/auth/google`. The response is the same platform access/refresh pair used by native login. Never use the Google token as `Authorization: Bearer` for platform endpoints. First-time users supply `requestedRole` (`CUSTOMER` or `SERVICE_PROVIDER`); marketplace verification remains `PENDING`. Existing native-email collisions must log in natively and call `POST /api/v1/me/auth-identities/google` to link explicitly.

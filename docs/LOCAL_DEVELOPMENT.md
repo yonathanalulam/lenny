@@ -32,7 +32,7 @@ Then export variables or load your `.env` using your preferred local tooling and
 .\gradlew.bat bootRun
 ```
 
-Flyway automatically applies V1–V5 and Hibernate validates the resulting schema.
+Flyway automatically applies V1–V11 and Hibernate validates the resulting schema.
 
 ## Useful URLs
 
@@ -83,6 +83,18 @@ The password must be 12–128 characters and is BCrypt-hashed. If the email alre
 ## Payment configuration
 
 No production gateway is bundled. `POSTING_FEE_PROVIDER=unavailable` is the safe default and payment initiation returns `PAYMENT_PROVIDER_UNAVAILABLE`. The signed `local-test` adapter is for automated/local tests only and cannot load in the `prod` profile.
+
+## Optional Spring AI configuration
+
+AI category suggestion is disabled by default and is not required for startup, tests, or manual category selection. To enable the OpenAI-backed Spring AI adapter locally:
+
+```powershell
+$env:SPRING_AI_CHAT_MODEL = "openai"
+$env:OPENAI_API_KEY = "your-local-secret"
+$env:OPENAI_CHAT_MODEL = "gpt-5-mini"
+```
+
+Never commit the key. Suggestions are validated against current active category IDs, are not persisted automatically, and never create or update a service request.
 
 ## Safe reset
 

@@ -1,4 +1,4 @@
-# API reference — Milestones 1–6
+# API reference — Milestones 1–8
 
 This is the human-readable companion to [`openapi.json`](openapi.json). The generated OpenAPI document and controller code remain the schema-level authority. All paths are relative to the API host (locally `http://localhost:8080`).
 
@@ -27,6 +27,32 @@ Protected calls use `Authorization: Bearer <access-token>`. `C` means `CUSTOMER`
 | `POST /api/v1/me/auth-identities/google` | Bearer, any role | Link a verified matching-email Google identity to the current account. | 400 email mismatch; 409 identity already linked. |
 
 See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session model. Google is an identity provider only; the platform session remains authoritative.
+
+## Communication, notifications, moderation, and preferences
+
+| Method and path | Auth | Purpose and important behavior |
+| --- | --- | --- |
+| `POST /api/v1/me/conversations` | Any authenticated participant | Open/idempotently return a relationship-backed conversation using exactly one `requestId` or `bookingId`; Job Posting customers also provide `counterpartAccountId` before provider selection. |
+| `GET /api/v1/me/conversations` | Participant | Deterministic paginated participant conversations. |
+| `GET /api/v1/me/conversations/{id}` | Participant | Conversation metadata only; no phone/exact-location duplication. |
+| `GET /api/v1/me/conversations/{id}/messages` | Participant | Database-paginated newest-first message history. |
+| `POST /api/v1/me/conversations/{id}/messages` | Participant | Send a 1–4000 character message unless either participant has blocked the other. |
+| `POST /api/v1/me/conversations/{id}/read` | Participant | Mark only received unread messages read. |
+| `GET /api/v1/me/notifications` | Recipient | Page notifications; `unreadOnly=true` is supported. |
+| `POST /api/v1/me/notifications/{id}/read` | Recipient | Idempotently mark one notification read. |
+| `POST /api/v1/me/notifications/read-all` | Recipient | Mark all caller notifications read. |
+| `GET`, `POST /api/v1/me/blocks` | Any authenticated marketplace participant | List own blocks or block an account with legitimate interaction history. |
+| `DELETE /api/v1/me/blocks/{accountId}` | Block owner | Remove caller-owned block; history is retained. |
+| `GET`, `POST /api/v1/me/reports` | Any authenticated marketplace participant | List own reports or submit a context-validated report. |
+| `GET`, `POST /api/v1/me/support-cases` | Booking/request participant | List/create support cases; `BOOKING_DISPUTE` atomically moves eligible Booking to `UNDER_REVIEW`. |
+| `GET /api/v1/me/support-cases/{id}` | Booking/request participant | Participant-safe case view; admin internal note is omitted. |
+| `GET`, `PUT /api/v1/me/preferences` | Any authenticated account | Own `AM`/`EN` language and in-app notification category preferences. |
+| `GET /api/v1/admin/reports` | A | Paginated/filterable report queue. |
+| `POST /api/v1/admin/reports/{id}/review` | A | Move report to review/resolution/dismissal through the application service. |
+| `GET /api/v1/admin/support-cases[/{id}]` | A | Paginated case queue/detail including safe internal notes. |
+| `POST /api/v1/admin/support-cases/{id}/review` | A | Move case through `OPEN`, `IN_REVIEW`, `RESOLVED`, `CLOSED`. |
+
+Blocking restricts new messages, Direct Invitations, and Proposals. It never cancels an existing Booking or erases messages/history. Persistent notifications contain concise event text and entity identifiers, never exact locations, phone numbers, report descriptions, message bodies, evidence, or provider callback payloads. Support resolution records an outcome only; it performs no refund or service-payment operation and does not guess a post-`UNDER_REVIEW` Booking state.
 
 ## Customer profile and onboarding
 
@@ -75,7 +101,7 @@ See [`AUTHENTICATION.md`](AUTHENTICATION.md) for examples and the full session m
 
 | Method and path | Auth | Purpose and principal fields | Important state/errors |
 | --- | --- | --- | --- |
-| `GET /api/v1/providers` | Public | Filter by `categoryId`, `serviceArea`, `available`, `minExperience`, requested date/time, `pricingText`, `sort`, `page`, `size`. | Only approved, eligible providers; no private contact/exact location. |
+| `GET /api/v1/providers` | Public | Filter by `categoryId`, `serviceArea`, `available`, `minExperience`, `minRating`, requested date/time, `pricingText`, `sort`, `page`, `size`; rating sort is supported. | Only approved, eligible providers; unrated providers return `averageRating=null`, `ratingCount=0`; no private contact/exact location. |
 | `GET /api/v1/providers/{providerId}` | Public | Public provider projection, categories and availability summary. | 404 when provider is not marketplace-public. |
 | `GET /api/v1/providers/compare?ids=...` | Public | Compare 2–5 approved providers without ranking. | 400 invalid count; 404 any non-public provider. |
 
@@ -151,6 +177,34 @@ Confirmation is one database transaction: lock Proposal/request/provider schedul
 
 Booking detail DTOs include lifecycle timestamps and privacy-safe `statusHistory` entries (`fromStatus`, `toStatus`, actor context, timestamp, optional reason). History is append-only. `CANCELLED` is the sole non-blocking state; completed/cancelled records remain queryable. Provider cancellation and dispute intake are not exposed because approved policy/category requirements are still ambiguous.
 
+## Reciprocal feedback and public ratings
+
+| Method and path | Auth | Purpose and important behavior |
+| --- | --- | --- |
+| `POST /api/v1/customers/me/bookings/{bookingId}/provider-feedback` | C | Submit one 1–5 rating and optional comment for the provider after this customer's Booking is `COMPLETED`. |
+| `POST /api/v1/providers/me/bookings/{bookingId}/customer-feedback` | P | Submit one 1–5 ease-of-working rating and optional comment for the customer after this provider's Booking is `COMPLETED`. |
+| `GET /api/v1/providers/{providerId}/reviews` | Public | Paginated visible customer-to-provider reviews with the fixed privacy-safe reviewer label `Verified customer`. |
+| `GET /api/v1/admin/feedback` | A | Paginated moderation view retaining original feedback and audit fields. |
+| `POST /api/v1/admin/feedback/{feedbackId}/moderation` | A | Hide or restore public feedback with an optional moderation reason; records actor/time without deleting evidence. |
+
+Only visible customer-to-provider feedback contributes to `averageRating` and `ratingCount`. Feedback is unique per Booking/direction at both application and database levels. Other Booking states, unrelated accounts, duplicate submissions, and scores outside 1–5 are rejected.
+
+## Administrator reporting and account operations
+
+| Method and path | Auth | Purpose and important behavior |
+| --- | --- | --- |
+| `GET /api/v1/admin/dashboard` | A | Current account, verification, category, request, Booking, Posting Fee, report/support, and provider-rating aggregates. |
+| `GET /api/v1/admin/audit-events` | A | Combined safe activity/audit events ordered newest-first; supports `actorId`, `eventType`, `page`, and `size`. |
+| `POST /api/v1/admin/accounts/{accountId}/status` | A | Change account status through Identity; revokes refresh sessions, invalidates access credentials, and audits the action. Self-status changes are denied. |
+
+Reporting is read-only SQL projection infrastructure. Audit output excludes secrets, message bodies, support/report descriptions, evidence contents, and payment callback payloads.
+
+## Advisory category suggestion
+
+`POST /api/v1/customers/me/category-suggestions` accepts `{ "description": "..." }` and returns a validated active category ID/name, optional confidence/explanation, and `advisory=true`. It requires `CUSTOMER`. The response is never persisted and never creates or edits a request; the customer-selected category remains authoritative.
+
+The integration is disabled by default and tests use a deterministic stub. Invalid/inactive/malformed model output returns `AI_SUGGESTION_INVALID`; provider unavailability returns `AI_SUGGESTION_UNAVAILABLE`. Provider/model internals and keys are never returned.
+
 ## Explicitly absent
 
-There is no messaging, notification, rating/review, full support/dispute, escrow, or service-payment API at the Milestone 6 checkpoint.
+There is no provider service-payment, escrow, wallet, payout, automatic final-pricing, government/background-checking, or autonomous AI decision API.

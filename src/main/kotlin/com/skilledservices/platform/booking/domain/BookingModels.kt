@@ -1,5 +1,6 @@
 package com.skilledservices.platform.booking.domain
 
+import com.skilledservices.platform.shared.pagination.PageSlice
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -49,6 +50,13 @@ data class Booking(
         BookingStatus.CONFIRMED -> BookingTransition(copy(status = BookingStatus.CANCELLED, cancelledAt = now, cancellationActorId = actorId, cancellationReason = reason), BookingStatus.CONFIRMED)
         else -> throw BookingInvalidTransitionException(status, BookingStatus.CANCELLED)
     }
+
+    fun openReview() = when (status) {
+        BookingStatus.UNDER_REVIEW -> BookingTransition(this, null)
+        BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETION_PENDING, BookingStatus.COMPLETED ->
+            BookingTransition(copy(status = BookingStatus.UNDER_REVIEW), status)
+        else -> throw BookingInvalidTransitionException(status, BookingStatus.UNDER_REVIEW)
+    }
 }
 
 data class BookingTransition(val booking: Booking, val fromStatus: BookingStatus?) {
@@ -71,8 +79,8 @@ interface BookingStore {
     fun findById(id: UUID): Booking?
     fun findByIdForUpdate(id: UUID): Booking?
     fun findByRequestId(requestId: UUID): Booking?
-    fun findByCustomerId(customerId: UUID): List<Booking>
-    fun findByProviderId(providerId: UUID): List<Booking>
+    fun findByCustomerId(customerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking>
+    fun findByProviderId(providerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking>
     fun existsBlockingConflict(providerId: UUID, start: Instant, end: Instant): Boolean
 }
 

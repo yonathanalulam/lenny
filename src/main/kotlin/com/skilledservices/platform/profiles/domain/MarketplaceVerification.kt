@@ -59,6 +59,10 @@ interface MarketplaceVerificationStore {
     fun save(verification: MarketplaceVerification): MarketplaceVerification
     fun findByAccountId(accountId: UUID): List<MarketplaceVerification>
     fun findByAccountIdAndSubjectType(accountId: UUID, subjectType: MarketplaceSubjectType): MarketplaceVerification?
+    fun findApprovedAccountIds(accountIds: Set<UUID>, subjectType: MarketplaceSubjectType): Set<UUID> =
+        accountIds.filterTo(mutableSetOf()) {
+            findByAccountIdAndSubjectType(it, subjectType)?.status == MarketplaceVerificationStatus.APPROVED
+        }
     fun findById(id: UUID): MarketplaceVerification?
     fun findByIdForUpdate(id: UUID): MarketplaceVerification?
     fun findAll(

@@ -1,7 +1,10 @@
 package com.skilledservices.platform.booking.infrastructure.persistence
 
 import com.skilledservices.platform.booking.domain.*
+import com.skilledservices.platform.shared.pagination.PageSlice
 import jakarta.persistence.*
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.jpa.repository.Lock
@@ -51,8 +54,10 @@ interface BookingJpaRepository : JpaRepository<BookingEntity, UUID> {
     @Query("select b from BookingEntity b where b.id = :id")
     fun findByIdForUpdate(@Param("id") id: UUID): BookingEntity?
     fun findByRequestId(requestId: UUID): BookingEntity?
-    fun findAllByCustomerIdOrderByConfirmedAtDesc(customerId: UUID): List<BookingEntity>
-    fun findAllByProviderIdOrderByConfirmedAtDesc(providerId: UUID): List<BookingEntity>
+    fun findAllByCustomerIdOrderByConfirmedAtDescIdDesc(customerId: UUID, pageable: org.springframework.data.domain.Pageable): Page<BookingEntity>
+    fun findAllByCustomerIdAndStatusOrderByConfirmedAtDescIdDesc(customerId: UUID, status: BookingStatus, pageable: org.springframework.data.domain.Pageable): Page<BookingEntity>
+    fun findAllByProviderIdOrderByConfirmedAtDescIdDesc(providerId: UUID, pageable: org.springframework.data.domain.Pageable): Page<BookingEntity>
+    fun findAllByProviderIdAndStatusOrderByConfirmedAtDescIdDesc(providerId: UUID, status: BookingStatus, pageable: org.springframework.data.domain.Pageable): Page<BookingEntity>
     @Query("select (count(b) > 0) from BookingEntity b where b.providerId = :providerId and b.status <> com.skilledservices.platform.booking.domain.BookingStatus.CANCELLED and b.scheduledStart < :end and b.scheduledEnd > :start")
     fun existsConflict(@Param("providerId") providerId: UUID, @Param("start") start: Instant, @Param("end") end: Instant): Boolean
 }
@@ -67,8 +72,18 @@ class JpaBookingStore(private val repository: BookingJpaRepository) : BookingSto
     override fun findById(id: UUID) = repository.findById(id).orElse(null)?.toDomain()
     override fun findByIdForUpdate(id: UUID) = repository.findByIdForUpdate(id)?.toDomain()
     override fun findByRequestId(requestId: UUID) = repository.findByRequestId(requestId)?.toDomain()
-    override fun findByCustomerId(customerId: UUID) = repository.findAllByCustomerIdOrderByConfirmedAtDesc(customerId).map { it.toDomain() }
-    override fun findByProviderId(providerId: UUID) = repository.findAllByProviderIdOrderByConfirmedAtDesc(providerId).map { it.toDomain() }
+    override fun findByCustomerId(customerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking> {
+        val pageable = PageRequest.of(page, size)
+        val result = status?.let { repository.findAllByCustomerIdAndStatusOrderByConfirmedAtDescIdDesc(customerId, it, pageable) }
+            ?: repository.findAllByCustomerIdOrderByConfirmedAtDescIdDesc(customerId, pageable)
+        return PageSlice(result.content.map { it.toDomain() }, result.totalElements)
+    }
+    override fun findByProviderId(providerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking> {
+        val pageable = PageRequest.of(page, size)
+        val result = status?.let { repository.findAllByProviderIdAndStatusOrderByConfirmedAtDescIdDesc(providerId, it, pageable) }
+            ?: repository.findAllByProviderIdOrderByConfirmedAtDescIdDesc(providerId, pageable)
+        return PageSlice(result.content.map { it.toDomain() }, result.totalElements)
+    }
     override fun existsBlockingConflict(providerId: UUID, start: Instant, end: Instant) = repository.existsConflict(providerId, start, end)
 }
 

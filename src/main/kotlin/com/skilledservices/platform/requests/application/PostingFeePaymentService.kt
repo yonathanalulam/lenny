@@ -4,6 +4,8 @@ import com.skilledservices.platform.identity.application.IdentityAccountQuery
 import com.skilledservices.platform.identity.domain.AccountRole
 import com.skilledservices.platform.profiles.application.CustomerEligibilityService
 import com.skilledservices.platform.requests.domain.*
+import com.skilledservices.platform.shared.events.PlatformNotification
+import com.skilledservices.platform.shared.events.PlatformNotificationPort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.RoundingMode
@@ -70,6 +72,7 @@ class PostingFeeTransactionCoordinator(
     private val customerEligibility: CustomerEligibilityService,
     private val identity: IdentityAccountQuery,
     private val properties: PostingFeePolicy,
+    private val notifications: PlatformNotificationPort,
     private val clock: Clock,
 ) {
     private val amount = properties.amount.setScale(2, RoundingMode.UNNECESSARY).also { require(it.signum() > 0) { "Posting Fee amount must be positive" } }
@@ -159,6 +162,8 @@ class PostingFeeTransactionCoordinator(
         val published = requests.save(request.copy(status = ServiceRequestStatus.OPEN, updatedAt = now))
         activity("POSTING_FEE", payment.id, "POSTING_FEE_SUCCEEDED", payment.customerId, now)
         activity("SERVICE_REQUEST", request.id, "JOB_POSTING_PUBLISHED", payment.customerId, now)
+        notifications.publish(PlatformNotification(payment.customerId, "JOB_POSTING_PUBLISHED", "Job Posting published",
+            "Your Posting Fee was verified and the Job Posting is now open.", "SERVICE_REQUEST", request.id))
         return VerifiedPaymentApplicationResult(successful, published)
     }
 

@@ -123,7 +123,8 @@ class MarketplaceRequestsPostgresIntegrationTest {
             status { isOk() }; jsonPath("$.totalItems") { value(2) }
         }
         mockMvc.get("/api/v1/providers?sort=rating,desc").andExpect {
-            status { isBadRequest() }; jsonPath("$.code") { value("UNSUPPORTED_PROVIDER_SORT") }
+            status { isOk() }; jsonPath("$.totalItems") { value(2) }
+            jsonPath("$.items[0].ratingCount") { value(0) }
         }
         mockMvc.get("/api/v1/providers/${providerA.account.id}").andExpect {
             status { isOk() }; jsonPath("$.providerId") { value(providerA.account.id.toString()) }

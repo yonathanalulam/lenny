@@ -64,6 +64,8 @@ data class PublicProviderResponse(
     val available: Boolean,
     val availability: List<PublicAvailabilityRangeResponse>,
     val verificationApproved: Boolean,
+    val averageRating: Double?,
+    val ratingCount: Long,
     val profileUpdatedAt: Instant,
 )
 
@@ -78,5 +80,5 @@ internal fun PublicProvider.toResponse() = PublicProviderResponse(
     profile.experienceYears, profile.serviceArea, profile.pricingSummary, profile.portfolioSummary,
     profile.profilePhotoAvailable, profile.available,
     profile.availabilityRanges.map { PublicAvailabilityRangeResponse(it.dayOfWeek, it.startTime, it.endTime) },
-    verificationApproved, profile.profileUpdatedAt,
+    verificationApproved, averageRating, ratingCount, profile.profileUpdatedAt,
 )

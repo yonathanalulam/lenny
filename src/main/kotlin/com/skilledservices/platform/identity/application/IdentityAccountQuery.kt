@@ -19,5 +19,8 @@ class IdentityAccountQuery(
     fun accountStatus(accountId: UUID): AccountStatus? = accountStore.findById(accountId)?.status
 
     @Transactional(readOnly = true)
+    fun accountStatuses(accountIds: Set<UUID>): Map<UUID, AccountStatus> = accountStore.findStatuses(accountIds)
+
+    @Transactional(readOnly = true)
     fun accountPhone(accountId: UUID): String? = accountStore.findById(accountId)?.phone
 }

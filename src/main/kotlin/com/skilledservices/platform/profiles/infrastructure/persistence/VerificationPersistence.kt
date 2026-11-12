@@ -84,6 +84,8 @@ class VerificationDecisionEntity(
 interface MarketplaceVerificationJpaRepository : JpaRepository<MarketplaceVerificationEntity, UUID> {
     fun findAllByAccountIdOrderBySubjectType(accountId: UUID): List<MarketplaceVerificationEntity>
     fun findByAccountIdAndSubjectType(accountId: UUID, subjectType: MarketplaceSubjectType): MarketplaceVerificationEntity?
+    @Query("select v.accountId from MarketplaceVerificationEntity v where v.accountId in :accountIds and v.subjectType = :subjectType and v.status = com.skilledservices.platform.profiles.domain.MarketplaceVerificationStatus.APPROVED")
+    fun findApprovedAccountIds(@Param("accountIds") accountIds: Set<UUID>, @Param("subjectType") subjectType: MarketplaceSubjectType): Set<UUID>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select v from MarketplaceVerificationEntity v where v.id = :id")
@@ -117,6 +119,8 @@ class JpaMarketplaceVerificationStore(private val repository: MarketplaceVerific
     override fun findByAccountId(accountId: UUID) = repository.findAllByAccountIdOrderBySubjectType(accountId).map { it.toDomain() }
     override fun findByAccountIdAndSubjectType(accountId: UUID, subjectType: MarketplaceSubjectType) =
         repository.findByAccountIdAndSubjectType(accountId, subjectType)?.toDomain()
+    override fun findApprovedAccountIds(accountIds: Set<UUID>, subjectType: MarketplaceSubjectType) =
+        if (accountIds.isEmpty()) emptySet() else repository.findApprovedAccountIds(accountIds, subjectType)
     override fun findById(id: UUID) = repository.findById(id).orElse(null)?.toDomain()
     override fun findByIdForUpdate(id: UUID) = repository.findByIdForUpdate(id)?.toDomain()
 

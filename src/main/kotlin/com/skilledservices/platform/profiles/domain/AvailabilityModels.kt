@@ -21,6 +21,8 @@ data class ProviderAvailability(
 
 interface ProviderAvailabilityStore {
     fun findByProviderId(providerId: UUID): ProviderAvailability?
+    fun findByProviderIds(providerIds: Set<UUID>): Map<UUID, ProviderAvailability> =
+        providerIds.mapNotNull { id -> findByProviderId(id)?.let { id to it } }.toMap()
     fun findByProviderIdForUpdate(providerId: UUID): ProviderAvailability?
     fun save(availability: ProviderAvailability): ProviderAvailability
 }
