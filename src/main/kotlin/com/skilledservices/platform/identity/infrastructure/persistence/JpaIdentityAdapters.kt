@@ -23,6 +23,9 @@ class JpaAccountStore(
 
     override fun findById(id: UUID): Account? = repository.findById(id).orElse(null)?.toDomain()
 
+    override fun findStatuses(ids: Set<UUID>) = if (ids.isEmpty()) emptyMap() else
+        repository.findStatuses(ids).associate { it.getId() to it.getStatus() }
+
     override fun save(account: Account): Account = repository.save(account.toEntity()).toDomain()
 }
 

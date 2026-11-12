@@ -32,7 +32,7 @@ Then export variables or load your `.env` using your preferred local tooling and
 .\gradlew.bat bootRun
 ```
 
-Flyway automatically applies V1–V10 and Hibernate validates the resulting schema.
+Flyway automatically applies V1–V11 and Hibernate validates the resulting schema.
 
 ## Useful URLs
 

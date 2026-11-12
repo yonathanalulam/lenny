@@ -5,10 +5,14 @@ import com.skilledservices.platform.identity.application.AccountAdministrationSe
 import com.skilledservices.platform.identity.domain.AccountRole
 import com.skilledservices.platform.identity.domain.AccountStatus
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Size
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.*
+import org.springframework.validation.annotation.Validated
 import java.time.Instant
 import java.util.UUID
 
@@ -19,6 +23,7 @@ data class AdminAccountResponse(val id: UUID, val status: AccountStatus, val rol
 @RequestMapping("/api/v1/admin")
 @PreAuthorize("hasRole('ADMIN')")
 @SecurityRequirement(name = "bearerAuth")
+@Validated
 class AdministrationController(
     private val reporting: AdministrationReportingService,
     private val accounts: AccountAdministrationService,
@@ -26,8 +31,10 @@ class AdministrationController(
     @GetMapping("/dashboard") fun dashboard() = reporting.dashboard()
 
     @GetMapping("/audit-events")
-    fun audit(@RequestParam(required = false) actorId: UUID?, @RequestParam(required = false) eventType: String?,
-        @RequestParam(defaultValue = "0") page: Int, @RequestParam(defaultValue = "20") size: Int) =
+    fun audit(@RequestParam(required = false) actorId: UUID?,
+        @RequestParam(required = false) @Size(max = 100) eventType: String?,
+        @RequestParam(defaultValue = "0") @Min(0) page: Int,
+        @RequestParam(defaultValue = "20") @Min(1) @Max(100) size: Int) =
         reporting.audit(actorId, eventType, page, size)
 
     @PostMapping("/accounts/{accountId}/status")

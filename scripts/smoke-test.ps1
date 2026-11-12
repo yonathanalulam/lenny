@@ -39,11 +39,11 @@ function Invoke-Json {
 }
 
 try {
-    Write-Host "[1/7] Checking API health at $BaseUrl"
+    Write-Host "[1/8] Checking API health at $BaseUrl"
     $health = Invoke-Json -Method GET -Path "/api/v1/health"
     Assert-Equal $health.status "UP" "API health is not UP"
 
-    Write-Host "[2/7] Registering disposable customer"
+    Write-Host "[2/8] Registering disposable customer"
     $customer = Invoke-Json -Method POST -Path "/api/v1/auth/register/customers" -Body @{
         email = $customerEmail
         password = $Password
@@ -52,31 +52,42 @@ try {
     Assert-Equal ($customer.user.roles -contains "CUSTOMER") $true "Customer role was not assigned"
     if (-not $customer.accessToken -or -not $customer.refreshToken) { throw "Customer token pair was not returned." }
 
-    Write-Host "[3/7] Verifying customer /me"
+    Write-Host "[3/8] Verifying customer /me"
     $customerMe = Invoke-Json -Method GET -Path "/api/v1/me" -Token $customer.accessToken
     Assert-Equal $customerMe.id $customer.user.id "Customer /me identity mismatch"
     if ($customerMe.PSObject.Properties.Name -contains "passwordHash") { throw "/me exposed passwordHash." }
     if ($customerMe.PSObject.Properties.Name -contains "refreshToken") { throw "/me exposed refreshToken." }
 
-    Write-Host "[4/7] Rotating customer refresh token"
+    Write-Host "[4/8] Rotating customer refresh token"
     $rotated = Invoke-Json -Method POST -Path "/api/v1/auth/refresh" -Body @{ refreshToken = $customer.refreshToken }
     if (-not $rotated.accessToken -or $rotated.refreshToken -eq $customer.refreshToken) {
         throw "Refresh rotation did not return a new token pair."
     }
 
-    Write-Host "[5/7] Registering disposable service provider"
+    Write-Host "[5/8] Logging out and verifying refresh revocation"
+    $null = Invoke-Json -Method POST -Path "/api/v1/auth/logout" -Token $rotated.accessToken
+    try {
+        $null = Invoke-Json -Method POST -Path "/api/v1/auth/refresh" -Body @{ refreshToken = $rotated.refreshToken }
+        throw "Revoked refresh token unexpectedly succeeded."
+    } catch {
+        if ($_.Exception.Message -eq "Revoked refresh token unexpectedly succeeded.") { throw }
+        $status = [int]$_.Exception.Response.StatusCode
+        Assert-Equal $status 401 "Revoked refresh token returned the wrong status"
+    }
+
+    Write-Host "[6/8] Registering disposable service provider"
     $provider = Invoke-Json -Method POST -Path "/api/v1/auth/register/service-providers" -Body @{
         email = $providerEmail
         password = $Password
     }
     Assert-Equal ($provider.user.roles -contains "SERVICE_PROVIDER") $true "Provider role was not assigned"
 
-    Write-Host "[6/7] Verifying provider /me and protected onboarding"
+    Write-Host "[7/8] Verifying provider /me and protected onboarding"
     $providerMe = Invoke-Json -Method GET -Path "/api/v1/me" -Token $provider.accessToken
     Assert-Equal $providerMe.id $provider.user.id "Provider /me identity mismatch"
     $null = Invoke-Json -Method GET -Path "/api/v1/providers/me/onboarding" -Token $provider.accessToken
 
-    Write-Host "[7/7] Verifying protected endpoint rejects missing bearer token"
+    Write-Host "[8/8] Verifying protected endpoint rejects missing bearer token"
     try {
         $null = Invoke-Json -Method GET -Path "/api/v1/me"
         throw "Unauthenticated /me unexpectedly succeeded."
@@ -86,7 +97,7 @@ try {
         Assert-Equal $status 401 "Unauthenticated /me returned the wrong status"
     }
 
-    Write-Host "SMOKE TEST PASSED: health, customer auth/refresh, provider auth, /me, and protected access."
+    Write-Host "SMOKE TEST PASSED: health, customer auth/refresh/logout/revocation, provider auth, /me, and protected access."
     exit 0
 } catch {
     Write-Error "SMOKE TEST FAILED: $($_.Exception.Message)"

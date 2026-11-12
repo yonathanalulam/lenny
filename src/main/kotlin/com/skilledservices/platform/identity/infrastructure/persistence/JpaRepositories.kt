@@ -13,6 +13,13 @@ interface AccountJpaRepository : JpaRepository<AccountEntity, UUID> {
     fun existsByEmail(email: String): Boolean
     fun existsByPhone(phone: String): Boolean
     fun findByEmail(email: String): AccountEntity?
+    @Query("select a.id as id, a.status as status from AccountEntity a where a.id in :ids")
+    fun findStatuses(@Param("ids") ids: Set<UUID>): List<AccountStatusProjection>
+}
+
+interface AccountStatusProjection {
+    fun getId(): UUID
+    fun getStatus(): com.skilledservices.platform.identity.domain.AccountStatus
 }
 
 interface ExternalIdentityJpaRepository : JpaRepository<ExternalIdentityEntity, UUID> {

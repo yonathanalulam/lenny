@@ -43,6 +43,23 @@ class ProviderRequestEligibility(
         return area.contains("addis ababa") || area.contains(requestedArea) || requestedArea.contains(area)
     }
 
+    fun eligibleJobs(providerId: UUID, requests: List<ServiceRequest>): List<ServiceRequest> {
+        requireMarketplace(providerId)
+        val categoryMap = categories.findAll().filter { it.active }.associateBy { it.id }
+        val offered = assignments.findByProviderId(providerId).map { it.categoryId }.toSet()
+        val area = profiles.findByProviderId(providerId)?.serviceArea?.trim()?.lowercase() ?: return emptyList()
+        return requests.filter { request ->
+            val requested = categoryMap[request.categoryId] ?: return@filter false
+            val categoryMatch = offered.any { offeredId ->
+                val offeredCategory = categoryMap[offeredId]
+                offeredCategory != null && (offeredCategory.id == requested.id ||
+                    (requested.parentId == null && offeredCategory.parentId == requested.id))
+            }
+            val requestedArea = request.generalArea.trim().lowercase()
+            categoryMatch && (area.contains("addis ababa") || area.contains(requestedArea) || requestedArea.contains(area))
+        }
+    }
+
     fun profile(providerId: UUID): DiscoverableProviderProfile? = profiles.findByProviderId(providerId)
 }
 
@@ -56,14 +73,15 @@ class ProviderJobService(
 ) {
     @Transactional(readOnly = true)
     fun list(providerId: UUID, page: Int, size: Int): PageResponse<ProviderJobDetails> {
-        providerEligibility.requireMarketplace(providerId)
         requirePage(page, size)
-        val all = requests.findOpenJobPostings().filter { providerEligibility.isEligibleFor(providerId, it) }
-            .map { ProviderJobDetails(it, attachments.findByRequestId(it.id)) }
-        val from = (page * size).coerceAtMost(all.size)
-        val to = (from + size).coerceAtMost(all.size)
-        val pages = if (all.isEmpty()) 0 else (all.size + size - 1) / size
-        return PageResponse(all.subList(from, to), page, size, all.size.toLong(), pages, page + 1 < pages)
+        val eligible = providerEligibility.eligibleJobs(providerId, requests.findOpenJobPostings())
+        val from = (page * size).coerceAtMost(eligible.size)
+        val to = (from + size).coerceAtMost(eligible.size)
+        val pageRequests = eligible.subList(from, to)
+        val attachmentMap = attachments.findByRequestIds(pageRequests.map { it.id }.toSet())
+        val items = pageRequests.map { ProviderJobDetails(it, attachmentMap[it.id].orEmpty()) }
+        val pages = if (eligible.isEmpty()) 0 else (eligible.size + size - 1) / size
+        return PageResponse(items, page, size, eligible.size.toLong(), pages, page + 1 < pages)
     }
 
     @Transactional(readOnly = true)

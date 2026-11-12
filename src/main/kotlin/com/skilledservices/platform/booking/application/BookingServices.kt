@@ -5,6 +5,7 @@ import com.skilledservices.platform.identity.application.IdentityAccountQuery
 import com.skilledservices.platform.identity.domain.AccountStatus
 import com.skilledservices.platform.profiles.application.*
 import com.skilledservices.platform.shared.api.PageResponse
+import com.skilledservices.platform.shared.pagination.PageSlice
 import com.skilledservices.platform.shared.events.PlatformNotification
 import com.skilledservices.platform.shared.events.PlatformNotificationPort
 import org.springframework.dao.DataIntegrityViolationException
@@ -80,8 +81,10 @@ class BookingService(
     }
 
     @Transactional(readOnly = true)
-    fun listCustomer(customerId: UUID, status: BookingStatus?, page: Int, size: Int) =
-        page(bookings.findByCustomerId(customerId).filter { status == null || it.status == status }.map(::details), page, size)
+    fun listCustomer(customerId: UUID, status: BookingStatus?, page: Int, size: Int): PageResponse<BookingDetails> {
+        requirePage(page, size)
+        return bookings.findByCustomerId(customerId, status, page, size).map(::details).toPage(page, size)
+    }
 
     @Transactional(readOnly = true)
     fun getCustomer(customerId: UUID, bookingId: UUID): BookingDetails {
@@ -91,8 +94,10 @@ class BookingService(
     }
 
     @Transactional(readOnly = true)
-    fun listProvider(providerId: UUID, status: BookingStatus?, page: Int, size: Int) =
-        page(bookings.findByProviderId(providerId).filter { status == null || it.status == status }.map(::details), page, size)
+    fun listProvider(providerId: UUID, status: BookingStatus?, page: Int, size: Int): PageResponse<BookingDetails> {
+        requirePage(page, size)
+        return bookings.findByProviderId(providerId, status, page, size).map(::details).toPage(page, size)
+    }
 
     @Transactional(readOnly = true)
     fun getProvider(providerId: UUID, bookingId: UUID): BookingDetails {
@@ -203,12 +208,15 @@ class BookingService(
         return schedule.ranges.any { it.dayOfWeek == localStart.dayOfWeek && it.startTime <= localStart.toLocalTime() && it.endTime >= localEnd.toLocalTime() }
     }
 
-    private fun <T> page(items: List<T>, page: Int, size: Int): PageResponse<T> {
+    private fun requirePage(page: Int, size: Int) {
         if (page < 0 || size !in 1..100) throw BookingScheduleInvalidException()
-        val from = (page * size).coerceAtMost(items.size); val to = (from + size).coerceAtMost(items.size)
-        val pages = if (items.isEmpty()) 0 else (items.size + size - 1) / size
-        return PageResponse(items.subList(from, to), page, size, items.size.toLong(), pages, page + 1 < pages)
     }
 
     companion object { private val ADDIS_ABABA = ZoneId.of("Africa/Addis_Ababa") }
+}
+
+private fun <T, R> PageSlice<T>.map(transform: (T) -> R) = PageSlice(items.map(transform), totalItems)
+private fun <T> PageSlice<T>.toPage(page: Int, size: Int): PageResponse<T> {
+    val pages = if (totalItems == 0L) 0 else ((totalItems + size - 1) / size).toInt()
+    return PageResponse(items, page, size, totalItems, pages, page + 1 < pages)
 }

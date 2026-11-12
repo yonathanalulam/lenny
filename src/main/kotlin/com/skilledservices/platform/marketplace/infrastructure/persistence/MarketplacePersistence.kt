@@ -49,6 +49,7 @@ interface ServiceCategoryJpaRepository : JpaRepository<ServiceCategoryEntity, UU
 
 interface ProviderCategoryJpaRepository : JpaRepository<ProviderCategoryEntity, ProviderCategoryKey> {
     fun findAllByProviderId(providerId: UUID): List<ProviderCategoryEntity>
+    fun findAllByProviderIdIn(providerIds: Set<UUID>): List<ProviderCategoryEntity>
     fun findAllByCategoryIdIn(categoryIds: Set<UUID>): List<ProviderCategoryEntity>
     fun deleteAllByProviderId(providerId: UUID)
 }
@@ -70,6 +71,8 @@ class JpaProviderCategoryStore(private val repository: ProviderCategoryJpaReposi
         return repository.saveAll(assignments.map { ProviderCategoryEntity(it.providerId, it.categoryId, it.createdAt) }).map { it.toDomain() }
     }
     override fun findByProviderId(providerId: UUID) = repository.findAllByProviderId(providerId).map { it.toDomain() }
+    override fun findByProviderIds(providerIds: Set<UUID>) = if (providerIds.isEmpty()) emptyList() else
+        repository.findAllByProviderIdIn(providerIds).map { it.toDomain() }
     override fun findByCategoryIds(categoryIds: Set<UUID>) = if (categoryIds.isEmpty()) emptyList() else repository.findAllByCategoryIdIn(categoryIds).map { it.toDomain() }
 }
 

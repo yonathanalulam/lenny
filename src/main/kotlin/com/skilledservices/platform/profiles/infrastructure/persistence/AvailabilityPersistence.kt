@@ -17,6 +17,7 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -53,6 +54,8 @@ class AvailabilityRangeEntity(
 )
 
 interface ProviderAvailabilityJpaRepository : JpaRepository<ProviderAvailabilityEntity, UUID> {
+    @EntityGraph(attributePaths = ["ranges"])
+    fun findAllByProviderIdIn(providerIds: Set<UUID>): List<ProviderAvailabilityEntity>
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from ProviderAvailabilityEntity a where a.providerId = :providerId")
     fun findByProviderIdForUpdate(@Param("providerId") providerId: UUID): ProviderAvailabilityEntity?
@@ -63,6 +66,8 @@ class JpaProviderAvailabilityStore(
     private val repository: ProviderAvailabilityJpaRepository,
 ) : ProviderAvailabilityStore {
     override fun findByProviderId(providerId: UUID) = repository.findById(providerId).orElse(null)?.toDomain()
+    override fun findByProviderIds(providerIds: Set<UUID>) = if (providerIds.isEmpty()) emptyMap() else
+        repository.findAllByProviderIdIn(providerIds).associate { it.providerId to it.toDomain() }
     override fun findByProviderIdForUpdate(providerId: UUID) = repository.findByProviderIdForUpdate(providerId)?.toDomain()
     override fun save(availability: ProviderAvailability) = repository.save(availability.toEntity()).toDomain()
 }

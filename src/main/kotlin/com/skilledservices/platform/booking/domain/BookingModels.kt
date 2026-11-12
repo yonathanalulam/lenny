@@ -1,5 +1,6 @@
 package com.skilledservices.platform.booking.domain
 
+import com.skilledservices.platform.shared.pagination.PageSlice
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -78,8 +79,8 @@ interface BookingStore {
     fun findById(id: UUID): Booking?
     fun findByIdForUpdate(id: UUID): Booking?
     fun findByRequestId(requestId: UUID): Booking?
-    fun findByCustomerId(customerId: UUID): List<Booking>
-    fun findByProviderId(providerId: UUID): List<Booking>
+    fun findByCustomerId(customerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking>
+    fun findByProviderId(providerId: UUID, status: BookingStatus?, page: Int, size: Int): PageSlice<Booking>
     fun existsBlockingConflict(providerId: UUID, start: Instant, end: Instant): Boolean
 }
 

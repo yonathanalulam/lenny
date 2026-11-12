@@ -72,6 +72,8 @@ interface RequestAttachmentStore {
     fun save(attachment: RequestAttachment): RequestAttachment
     fun findById(id: UUID): RequestAttachment?
     fun findByRequestId(requestId: UUID): List<RequestAttachment>
+    fun findByRequestIds(requestIds: Set<UUID>): Map<UUID, List<RequestAttachment>> =
+        requestIds.associateWith(::findByRequestId)
 }
 
 open class RequestsException(val code: String, message: String) : RuntimeException(message)

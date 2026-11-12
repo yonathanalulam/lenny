@@ -7,7 +7,7 @@ This branch completes Milestones 1–8: native/Google platform sessions, profile
 ## Stack and architecture
 
 - Kotlin, Java 21 toolchain, Spring Boot 4.1.2, MVC, Security and Data JPA
-- PostgreSQL 17, Flyway V1–V10, Testcontainers
+- PostgreSQL 17, Flyway V1–V11, Testcontainers
 - JWT access tokens plus opaque server-side refresh sessions
 - OpenAPI/Swagger, RFC 9457 ProblemDetail responses and correlation IDs
 - Modular-monolith packages with domain/application/API/infrastructure boundaries
@@ -58,6 +58,7 @@ Docker must be running because integration tests use real PostgreSQL rather than
 - [Executed Milestones 4.5–6 test report](docs/TEST_REPORT_MILESTONES_4_5_TO_6.md)
 - [Executed Milestone 7 test report](docs/TEST_REPORT_MILESTONE_7.md)
 - [Executed Milestone 8 test report](docs/TEST_REPORT_MILESTONE_8.md)
+- [Final backend test report](docs/FINAL_BACKEND_TEST_REPORT.md)
 - [Frontend integration contract](docs/frontend-integration.md)
 - [Generated OpenAPI contract](docs/openapi.json)
 - [Postman collection and local environment](docs/postman/SkilledServices.postman_collection.json)

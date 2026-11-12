@@ -30,6 +30,8 @@ interface ServiceCategoryStore {
 interface ProviderCategoryStore {
     fun replace(providerId: UUID, assignments: List<ProviderCategoryAssignment>): List<ProviderCategoryAssignment>
     fun findByProviderId(providerId: UUID): List<ProviderCategoryAssignment>
+    fun findByProviderIds(providerIds: Set<UUID>): List<ProviderCategoryAssignment> =
+        providerIds.flatMap(::findByProviderId)
     fun findByCategoryIds(categoryIds: Set<UUID>): List<ProviderCategoryAssignment>
 }
 

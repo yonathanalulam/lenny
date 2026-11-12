@@ -13,6 +13,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.Table
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.stereotype.Repository
 import java.time.Instant
 import java.util.UUID
@@ -50,7 +51,10 @@ class ProviderProfileEntity(
 )
 
 interface CustomerProfileJpaRepository : JpaRepository<CustomerProfileEntity, UUID>
-interface ProviderProfileJpaRepository : JpaRepository<ProviderProfileEntity, UUID>
+interface ProviderProfileJpaRepository : JpaRepository<ProviderProfileEntity, UUID> {
+    @EntityGraph(attributePaths = ["skills"])
+    override fun findAll(): List<ProviderProfileEntity>
+}
 
 @Repository
 class JpaCustomerProfileStore(private val repository: CustomerProfileJpaRepository) : CustomerProfileStore {

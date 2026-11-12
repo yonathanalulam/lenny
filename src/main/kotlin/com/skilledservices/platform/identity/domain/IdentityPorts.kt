@@ -9,6 +9,8 @@ interface AccountStore {
     fun existsByPhone(phone: String): Boolean
     fun findByEmail(email: String): Account?
     fun findById(id: UUID): Account?
+    fun findStatuses(ids: Set<UUID>): Map<UUID, AccountStatus> =
+        ids.mapNotNull { id -> findById(id)?.let { id to it.status } }.toMap()
     fun save(account: Account): Account
 }
 

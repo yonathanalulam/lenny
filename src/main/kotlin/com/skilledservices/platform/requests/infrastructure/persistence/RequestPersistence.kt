@@ -65,7 +65,7 @@ interface ServiceRequestJpaRepository : JpaRepository<ServiceRequestEntity, UUID
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from ServiceRequestEntity r where r.id = :id")
     fun findByIdForUpdate(@Param("id") id: UUID): ServiceRequestEntity?
-    fun findAllByTypeAndStatusOrderByCreatedAtDesc(type: ServiceRequestType, status: ServiceRequestStatus): List<ServiceRequestEntity>
+    fun findAllByTypeAndStatusOrderByCreatedAtDescIdDesc(type: ServiceRequestType, status: ServiceRequestStatus): List<ServiceRequestEntity>
 }
 interface InvitationJpaRepository : JpaRepository<InvitationEntity, UUID> {
     fun findByRequestId(requestId: UUID): InvitationEntity?
@@ -76,6 +76,7 @@ interface InvitationJpaRepository : JpaRepository<InvitationEntity, UUID> {
 }
 interface RequestAttachmentJpaRepository : JpaRepository<RequestAttachmentEntity, UUID> {
     fun findAllByRequestIdOrderByUploadedAt(requestId: UUID): List<RequestAttachmentEntity>
+    fun findAllByRequestIdInOrderByRequestIdAscUploadedAtAsc(requestIds: Set<UUID>): List<RequestAttachmentEntity>
 }
 
 @Repository class JpaServiceRequestStore(private val repository: ServiceRequestJpaRepository) : ServiceRequestStore {
@@ -83,7 +84,7 @@ interface RequestAttachmentJpaRepository : JpaRepository<RequestAttachmentEntity
     override fun findById(id: UUID) = repository.findById(id).orElse(null)?.toDomain()
     override fun findByIdForUpdate(id: UUID) = repository.findByIdForUpdate(id)?.toDomain()
     override fun findByCustomerId(customerId: UUID) = repository.findAllByCustomerIdOrderByCreatedAtDesc(customerId).map { it.toDomain() }
-    override fun findOpenJobPostings() = repository.findAllByTypeAndStatusOrderByCreatedAtDesc(ServiceRequestType.JOB_POSTING, ServiceRequestStatus.OPEN).map { it.toDomain() }
+    override fun findOpenJobPostings() = repository.findAllByTypeAndStatusOrderByCreatedAtDescIdDesc(ServiceRequestType.JOB_POSTING, ServiceRequestStatus.OPEN).map { it.toDomain() }
 }
 @Repository class JpaInvitationStore(private val repository: InvitationJpaRepository) : InvitationStore {
     override fun save(invitation: DirectInvitation) = repository.save(invitation.toEntity()).toDomain()
@@ -96,6 +97,8 @@ interface RequestAttachmentJpaRepository : JpaRepository<RequestAttachmentEntity
     override fun save(attachment: RequestAttachment) = repository.save(attachment.toEntity()).toDomain()
     override fun findById(id: UUID) = repository.findById(id).orElse(null)?.toDomain()
     override fun findByRequestId(requestId: UUID) = repository.findAllByRequestIdOrderByUploadedAt(requestId).map { it.toDomain() }
+    override fun findByRequestIds(requestIds: Set<UUID>) = if (requestIds.isEmpty()) emptyMap() else
+        repository.findAllByRequestIdInOrderByRequestIdAscUploadedAtAsc(requestIds).map { it.toDomain() }.groupBy { it.requestId }
 }
 
 private fun ServiceRequestEntity.toDomain() = ServiceRequest(id, customerId, type, status, categoryId, providerId, description, generalArea, exactLocation, preferredDate, preferredStartTime, preferredEndTime, urgency, budgetMin, budgetMax, specialInstructions, createdAt, updatedAt, cancelledAt)

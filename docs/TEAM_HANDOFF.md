@@ -47,6 +47,8 @@ Architecture rules have executable coverage in `ArchitectureBoundaryTest`.
 7. Relationship-scoped messaging, in-app notifications, blocking/reporting, Booking-linked support/disputes, admin moderation, audit facts, and AM/EN account preferences.
 8. Reciprocal completed-Booking feedback, provider rating discovery, admin dashboard/audit/account status operations, and advisory Spring AI category suggestion.
 
+Release hardening added PostgreSQL Booking pagination, batched discovery/job-feed enrichment, deterministic open-job ordering, focused V11 indexes, expanded auth smoke coverage, and final documentation without changing product scope.
+
 ## Not implemented
 
 - A real production payment gateway

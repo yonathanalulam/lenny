@@ -13,6 +13,7 @@ interface CustomerEligibilityService {
 
 interface ProviderEligibilityService {
     fun isMarketplaceEligible(userId: UUID): Boolean
+    fun eligibleProviderIds(userIds: Set<UUID>): Set<UUID>
 }
 
 @Service
@@ -33,4 +34,8 @@ class VerificationBackedProviderEligibilityService(
     override fun isMarketplaceEligible(userId: UUID): Boolean =
         store.findByAccountIdAndSubjectType(userId, MarketplaceSubjectType.PROVIDER)?.status ==
             MarketplaceVerificationStatus.APPROVED
+
+    @Transactional(readOnly = true)
+    override fun eligibleProviderIds(userIds: Set<UUID>): Set<UUID> =
+        store.findApprovedAccountIds(userIds, MarketplaceSubjectType.PROVIDER)
 }

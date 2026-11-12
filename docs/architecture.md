@@ -104,3 +104,11 @@ Profile completion, evidence submission, contact ownership, and marketplace appr
 - `administration` is read-only reporting infrastructure over PostgreSQL projections. Cross-module state changes use owning application services, such as Identity's account administration service, which revokes refresh sessions and increments credential version.
 - Category suggestion application code owns `CategorySuggestionPort`. The `integration.ai` adapter uses Spring AI's provider-neutral `ChatModel`; it receives only the description and active category candidates, returns structured data, and is disabled by default.
 - AI output is advisory and must match an active category ID. Invalid, malformed, inactive, or unavailable output fails safely without creating a request or persisting a choice.
+
+## Query and pagination hardening
+
+- Booking participant lists apply status filtering, deterministic ordering, count, limit, and offset in PostgreSQL before enriching only the returned page.
+- Provider discovery batches account status, marketplace approval, availability, category assignments, category definitions, and rating aggregates; query count no longer grows per candidate provider.
+- The provider Job Posting feed computes the caller's eligibility context once and batch-loads attachments for the returned page rather than querying per job.
+- Message and notification history, feedback lists, support/report queues, and audit events remain database-paginated. Rating aggregates use one grouped query over the requested provider IDs.
+- V11 adds focused participant-list and open-job ordering indexes; no speculative cache, search engine, or additional datastore was introduced.
