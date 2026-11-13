@@ -11,7 +11,7 @@ Use these endpoints instead of inferring state from missing profile fields:
 - `GET /customers/me/onboarding`
 - `GET /providers/me/onboarding`
 
-Example:
+Provider example:
 
 ```json
 {
@@ -26,6 +26,8 @@ Example:
 
 `setupComplete` never implies verification approval. A provider remains private/ineligible while `PENDING` or `REJECTED`.
 
+Customer onboarding additionally returns `setupStatus` (`NOT_STARTED`, `IN_PROGRESS`, or `COMPLETE`), `contactVerification`, and the four `requirements` flags. Its `verificationStatus` remains the real marketplace review state; it is not reported as `NOT_REQUIRED` while customer marketplace actions still require approval.
+
 ## Profiles and availability
 
 | Method | Path | Role |
@@ -34,7 +36,7 @@ Example:
 | `GET`, `PUT` | `/providers/me/profile` | `SERVICE_PROVIDER` |
 | `GET`, `PUT` | `/providers/me/availability` | `SERVICE_PROVIDER` |
 
-Customer profiles contain only a general service area and preferred language. Exact job addresses must be collected by the future Service Request workflow. Provider profile fields are private until future discovery code checks provider eligibility.
+Customer profile PUT accepts `fullName`, the authenticated account `email`, optional E.164 `phone`, `preferredLanguage`, and `serviceAreaId`. Email is an identity assertion and cannot be changed through the profile endpoint. Adding or replacing a phone resets `phoneVerified` to false. GET composes these profile fields with identity-owned contact verification and returns a display `serviceAreaName`. Exact job addresses must still be collected by the Service Request workflow. Provider profile fields are private until discovery code checks provider eligibility.
 
 Availability is a weekly template. `available` is a global switch; `ranges` contain `dayOfWeek`, `startTime`, and `endTime`. Times use local wall-clock values intended for Addis Ababa. Booking conflicts are intentionally not represented yet.
 

@@ -39,14 +39,15 @@ class AuthenticationPostgresIntegrationTest {
     @Test
     fun `customer registration persists only hashed credentials and me uses JWT identity`() {
         val email = "customer-${UUID.randomUUID()}@example.com"
-        val response = register("customers", email, "+2519${randomDigits()}", extra = ",\"roles\":[\"ADMIN\"]")
+        val response = register("customers", email, null, extra = ",\"roles\":[\"ADMIN\"]")
         val accountId = UUID.fromString(JsonPath.read(response, "$.user.id"))
         val accessToken = JsonPath.read<String>(response, "$.accessToken")
-        val stored = jdbc.queryForMap("select password_hash, status from accounts where id = ?", accountId)
+        val stored = jdbc.queryForMap("select password_hash, status, phone from accounts where id = ?", accountId)
         assertNotEquals(PASSWORD, stored["password_hash"])
         assertTrue(passwordHash.matches(PASSWORD, stored["password_hash"] as String))
         assertTrue(jdbc.queryForObject("select count(*) from account_roles where account_id = ? and role = 'CUSTOMER'", Long::class.java, accountId) == 1L)
         assertTrue(jdbc.queryForObject("select count(*) from account_roles where account_id = ? and role = 'ADMIN'", Long::class.java, accountId) == 0L)
+        assertTrue(stored["phone"] == null)
 
         mockMvc.get("/api/v1/me") { bearer(accessToken) }.andExpect {
             status { isOk() }
@@ -83,21 +84,32 @@ class AuthenticationPostgresIntegrationTest {
     fun `duplicate and malformed registration use stable problem details`() {
         val email = "duplicate-${UUID.randomUUID()}@example.com"
         val phone = "+2519${randomDigits()}"
-        register("customers", email, phone)
+        register("customers", email, null)
         mockMvc.post("/api/v1/auth/register/customers") {
             contentType = MediaType.APPLICATION_JSON
-            content = registrationJson(email, null)
+            content = customerRegistrationJson(email)
         }.andExpect { status { isConflict() }; jsonPath("$.code") { value("identity.contact_already_registered") } }
+        register("service-providers", "provider-${UUID.randomUUID()}@example.com", phone)
         mockMvc.post("/api/v1/auth/register/service-providers") {
             contentType = MediaType.APPLICATION_JSON
             content = registrationJson("other-${UUID.randomUUID()}@example.com", phone)
         }.andExpect { status { isConflict() }; jsonPath("$.code") { value("identity.contact_already_registered") } }
         mockMvc.post("/api/v1/auth/register/customers") {
             contentType = MediaType.APPLICATION_JSON
-            content = """{"email":"not-email","phone":"123","password":"short"}"""
+            content = """{"email":"not-email","password":"short"}"""
         }.andExpect {
             status { isBadRequest() }; content { contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON) }
             jsonPath("$.code") { value("request.validation_failed") }
+        }
+
+        mockMvc.get("/v3/api-docs").andExpect {
+            status { isOk() }
+            jsonPath("$.paths['/api/v1/auth/register/customers'].post.requestBody.content['application/json'].schema['${'$'}ref']") {
+                value("#/components/schemas/CustomerRegistrationRequest")
+            }
+            jsonPath("$.components.schemas.CustomerRegistrationRequest.properties.phone") { doesNotExist() }
+            jsonPath("$.components.schemas.CustomerRegistrationRequest.properties.email") { exists() }
+            jsonPath("$.components.schemas.CustomerRegistrationRequest.properties.password") { exists() }
         }
     }
 
@@ -151,7 +163,7 @@ class AuthenticationPostgresIntegrationTest {
     private fun register(kind: String, email: String, phone: String?, extra: String = ""): String =
         mockMvc.post("/api/v1/auth/register/$kind") {
             contentType = MediaType.APPLICATION_JSON
-            content = registrationJson(email, phone, extra)
+            content = if (kind == "customers") customerRegistrationJson(email, extra) else registrationJson(email, phone, extra)
         }.andExpect { status { isCreated() }; jsonPath("$.tokenType") { value("Bearer") } }
             .andReturn().response.contentAsString
 
@@ -169,6 +181,9 @@ class AuthenticationPostgresIntegrationTest {
 
     private fun registrationJson(email: String, phone: String?, extra: String = "") =
         """{"email":"$email","phone":${phone?.let { "\"$it\"" } ?: "null"},"password":"$PASSWORD"$extra}"""
+
+    private fun customerRegistrationJson(email: String, extra: String = "") =
+        """{"email":"$email","password":"$PASSWORD"$extra}"""
 
     private fun createAdminToken(): String {
         val now = clock.instant()

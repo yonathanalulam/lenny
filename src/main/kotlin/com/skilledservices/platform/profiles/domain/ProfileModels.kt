@@ -5,7 +5,9 @@ import java.util.UUID
 
 data class CustomerProfile(
     val accountId: UUID,
-    val serviceArea: String,
+    val fullName: String,
+    val serviceAreaId: String,
+    val serviceAreaName: String,
     val preferredLanguage: String,
     val profilePhotoObjectId: UUID?,
     val setupComplete: Boolean,

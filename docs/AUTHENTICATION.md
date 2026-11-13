@@ -35,12 +35,11 @@ Content-Type: application/json
 
 {
   "email": "customer@example.test",
-  "phone": "+251911234567",
   "password": "replace-with-a-strong-password"
 }
 ```
 
-Provider registration uses the same body at `/api/v1/auth/register/service-providers`. Phone is optional and, when provided, must use E.164 format. Password length is 12–128 characters.
+Customer registration intentionally collects only email and password. Provider registration at `/api/v1/auth/register/service-providers` also accepts an optional E.164 phone. A customer may add a phone through the profile endpoint; adding or replacing it leaves `phoneVerified=false` until the contact-verification flow proves ownership. Password length is 12–128 characters.
 
 Successful registration returns HTTP `201`:
 

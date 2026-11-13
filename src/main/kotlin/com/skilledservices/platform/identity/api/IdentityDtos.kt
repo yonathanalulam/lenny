@@ -14,11 +14,23 @@ import jakarta.validation.constraints.Size
 import java.time.Instant
 import java.util.UUID
 
-data class RegistrationRequest(
+data class CustomerRegistrationRequest(
     @field:NotBlank
     @field:Email
     @field:Size(max = 320)
     @field:Schema(example = "customer@example.com")
+    val email: String,
+
+    @field:Size(min = 12, max = 128)
+    @field:Schema(format = "password", minLength = 12)
+    val password: String,
+)
+
+data class RegistrationRequest(
+    @field:NotBlank
+    @field:Email
+    @field:Size(max = 320)
+    @field:Schema(example = "provider@example.com")
     val email: String,
 
     @field:Pattern(regexp = "^\\+[1-9][0-9]{7,14}$", message = "must use E.164 format, for example +251911234567")

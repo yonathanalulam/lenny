@@ -22,7 +22,9 @@ import java.util.UUID
 @Table(name = "customer_profiles")
 class CustomerProfileEntity(
     @Id @Column(name = "account_id") var accountId: UUID,
-    @Column(name = "service_area", nullable = false, length = 160) var serviceArea: String,
+    @Column(name = "full_name", nullable = false, length = 160) var fullName: String,
+    @Column(name = "service_area_id", nullable = false, length = 100) var serviceAreaId: String,
+    @Column(name = "service_area", nullable = false, length = 160) var serviceAreaName: String,
     @Column(name = "preferred_language", nullable = false, length = 32) var preferredLanguage: String,
     @Column(name = "profile_photo_object_id") var profilePhotoObjectId: UUID?,
     @Column(name = "setup_complete", nullable = false) var setupComplete: Boolean,
@@ -70,11 +72,11 @@ class JpaProviderProfileStore(private val repository: ProviderProfileJpaReposito
 }
 
 private fun CustomerProfileEntity.toDomain() = CustomerProfile(
-    accountId, serviceArea, preferredLanguage, profilePhotoObjectId, setupComplete, createdAt, updatedAt,
+    accountId, fullName, serviceAreaId, serviceAreaName, preferredLanguage, profilePhotoObjectId, setupComplete, createdAt, updatedAt,
 )
 
 private fun CustomerProfile.toEntity() = CustomerProfileEntity(
-    accountId, serviceArea, preferredLanguage, profilePhotoObjectId, setupComplete, createdAt, updatedAt,
+    accountId, fullName, serviceAreaId, serviceAreaName, preferredLanguage, profilePhotoObjectId, setupComplete, createdAt, updatedAt,
 )
 
 private fun ProviderProfileEntity.toDomain() = ProviderProfile(

@@ -31,12 +31,15 @@ class AuthController(
     @PostMapping("/register/customers")
     @Operation(summary = "Register a customer account")
     @ApiResponse(responseCode = "201", description = "Customer account and session created")
-    @ApiResponse(responseCode = "409", description = "Email or phone is already registered")
+    @ApiResponse(responseCode = "409", description = "Email is already registered")
     fun registerCustomer(
-        @Valid @RequestBody request: RegistrationRequest,
+        @Valid @RequestBody request: CustomerRegistrationRequest,
         servletRequest: HttpServletRequest,
     ): ResponseEntity<AuthResponse> {
-        val result = authService.registerCustomer(request.toCommand(), servletRequest.clientContext())
+        val result = authService.registerCustomer(
+            RegistrationCommand(request.email, null, request.password),
+            servletRequest.clientContext(),
+        )
         return ResponseEntity.status(HttpStatus.CREATED).body(result.toResponse())
     }
 

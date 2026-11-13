@@ -23,6 +23,12 @@ class AccountNotFoundException :
 class AccountStatusChangeInvalidException(message: String) :
     IdentityException(message, "identity.account_status_change_invalid")
 
+class ContactEmailMismatchException :
+    IdentityException(
+        "Profile email must match the authenticated account; use the verified email-change flow to change it",
+        "identity.contact_email_mismatch",
+    )
+
 class GoogleAuthUnavailableException : IdentityException("Google authentication is not configured", "identity.google_auth_unavailable")
 class GoogleTokenInvalidException : IdentityException("The Google ID token is invalid", "identity.google_token_invalid")
 class GoogleTokenExpiredException : IdentityException("The Google ID token is expired", "identity.google_token_expired")
