@@ -23,4 +23,7 @@ class IdentityAccountQuery(
 
     @Transactional(readOnly = true)
     fun accountPhone(accountId: UUID): String? = accountStore.findById(accountId)?.phone
+
+    @Transactional(readOnly = true)
+    fun accountContact(accountId: UUID): AccountContactSnapshot? = accountStore.findById(accountId)?.toContactSnapshot()
 }

@@ -84,7 +84,7 @@ class ApiExceptionHandler {
             is GoogleAuthUnavailableException -> HttpStatus.SERVICE_UNAVAILABLE
             is GoogleAccountLinkRequiredException, is GoogleIdentityAlreadyLinkedException -> HttpStatus.CONFLICT
             is GoogleRegistrationRoleRequiredException, is GoogleIdentityEmailMismatchException,
-            is AccountStatusChangeInvalidException -> HttpStatus.BAD_REQUEST
+            is AccountStatusChangeInvalidException, is ContactEmailMismatchException -> HttpStatus.BAD_REQUEST
             is GoogleTokenInvalidException, is GoogleTokenExpiredException, is GoogleAudienceInvalidException,
             is GoogleEmailNotVerifiedException -> HttpStatus.UNAUTHORIZED
             is InvalidCredentialsException, is InvalidRefreshTokenException, is InactiveAccountException -> HttpStatus.UNAUTHORIZED

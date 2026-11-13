@@ -1,5 +1,7 @@
 package com.skilledservices.platform.profiles.application
 
+import com.skilledservices.platform.identity.application.AccountContactSnapshot
+import com.skilledservices.platform.identity.application.IdentityContactService
 import com.skilledservices.platform.identity.application.IdentityAccountQuery
 import com.skilledservices.platform.identity.domain.AccountRole
 import com.skilledservices.platform.profiles.domain.CustomerProfile
@@ -15,8 +17,17 @@ import java.time.Clock
 import java.util.UUID
 
 data class CustomerProfileCommand(
-    val serviceArea: String,
+    val fullName: String,
+    val email: String,
+    val phone: String?,
     val preferredLanguage: String,
+    val serviceAreaId: String,
+)
+
+data class CustomerProfileView(
+    val profile: CustomerProfile,
+    val contact: AccountContactSnapshot,
+    val setupComplete: Boolean,
 )
 
 data class ProviderProfileCommand(
@@ -33,32 +44,42 @@ class ProfileService(
     private val customerStore: CustomerProfileStore,
     private val providerStore: ProviderProfileStore,
     private val identityAccountQuery: IdentityAccountQuery,
+    private val identityContactService: IdentityContactService,
     private val clock: Clock,
 ) {
     @Transactional(readOnly = true)
-    fun getCustomer(accountId: UUID): CustomerProfile {
+    fun getCustomer(accountId: UUID): CustomerProfileView {
         requireRole(accountId, AccountRole.CUSTOMER)
-        return customerStore.findByAccountId(accountId) ?: throw ProfileNotFoundException()
+        val profile = customerStore.findByAccountId(accountId) ?: throw ProfileNotFoundException()
+        val contact = identityAccountQuery.accountContact(accountId) ?: throw ProfileRoleRequiredException()
+        return profile.toView(contact)
     }
 
     @Transactional
-    fun putCustomer(accountId: UUID, command: CustomerProfileCommand): CustomerProfile {
+    fun putCustomer(accountId: UUID, command: CustomerProfileCommand): CustomerProfileView {
         requireRole(accountId, AccountRole.CUSTOMER)
-        val area = cleanRequired(command.serviceArea, "serviceArea", 2, 160)
+        val fullName = cleanRequired(command.fullName, "fullName", 2, 160)
         val language = cleanRequired(command.preferredLanguage, "preferredLanguage", 2, 32)
+        val serviceAreaId = cleanRequired(command.serviceAreaId, "serviceAreaId", 2, 100)
+        val serviceAreaName = resolveServiceAreaName(serviceAreaId)
+        val contact = identityContactService.updateCustomerContact(accountId, command.email, command.phone)
         val existing = customerStore.findByAccountId(accountId)
         val now = clock.instant()
-        return customerStore.save(
+        val setupComplete = contact.requiredContactVerified
+        val saved = customerStore.save(
             CustomerProfile(
                 accountId = accountId,
-                serviceArea = area,
+                fullName = fullName,
+                serviceAreaId = serviceAreaId,
+                serviceAreaName = serviceAreaName,
                 preferredLanguage = language,
                 profilePhotoObjectId = existing?.profilePhotoObjectId,
-                setupComplete = true,
+                setupComplete = setupComplete,
                 createdAt = existing?.createdAt ?: now,
                 updatedAt = now,
             ),
         )
+        return saved.toView(contact)
     }
 
     @Transactional(readOnly = true)
@@ -107,4 +128,21 @@ class ProfileService(
         if (cleaned.length !in min..max) throw ProfileInvalidException("$field must contain between $min and $max characters")
         return cleaned
     }
+
+    private fun CustomerProfile.toView(contact: AccountContactSnapshot): CustomerProfileView =
+        CustomerProfileView(this, contact, isCustomerSetupComplete(this, contact))
+
+    private fun resolveServiceAreaName(serviceAreaId: String): String = when (serviceAreaId) {
+        "bole-medhanialem" -> "Bole / Medhanialem"
+        else -> serviceAreaId.split('-').joinToString(" ") { segment ->
+            segment.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+    }
 }
+
+internal fun isCustomerSetupComplete(profile: CustomerProfile?, contact: AccountContactSnapshot): Boolean =
+    profile != null &&
+        profile.fullName.isNotBlank() &&
+        profile.serviceAreaId.isNotBlank() &&
+        profile.preferredLanguage.isNotBlank() &&
+        contact.requiredContactVerified

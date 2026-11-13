@@ -2,13 +2,16 @@ package com.skilledservices.platform.identity
 
 import com.skilledservices.platform.identity.application.AuthService
 import com.skilledservices.platform.identity.application.ClientContext
+import com.skilledservices.platform.identity.application.IdentityContactService
 import com.skilledservices.platform.identity.application.RegistrationCommand
 import com.skilledservices.platform.identity.application.GoogleIdentityVerifier
 import com.skilledservices.platform.identity.application.VerifiedGoogleIdentity
 import com.skilledservices.platform.identity.domain.AccessTokenPort
 import com.skilledservices.platform.identity.domain.Account
 import com.skilledservices.platform.identity.domain.AccountRole
+import com.skilledservices.platform.identity.domain.AccountStatus
 import com.skilledservices.platform.identity.domain.AccountStore
+import com.skilledservices.platform.identity.domain.ContactEmailMismatchException
 import com.skilledservices.platform.identity.domain.IssuedAccessToken
 import com.skilledservices.platform.identity.domain.InvalidRefreshTokenException
 import com.skilledservices.platform.identity.domain.PasswordHashPort
@@ -77,6 +80,37 @@ class AuthServiceTest {
         assertFailsWith<InvalidRefreshTokenException> {
             service.refresh(registered.refreshToken, ClientContext(null, null))
         }
+    }
+
+    @Test
+    fun `profile contact update cannot change email and resets phone verification`() {
+        val account = accounts.save(
+            Account(
+                id = UUID.randomUUID(),
+                email = "customer@example.com",
+                phone = "+251911111111",
+                passwordHash = "hashed",
+                status = AccountStatus.ACTIVE,
+                roles = setOf(AccountRole.CUSTOMER),
+                emailVerified = true,
+                phoneVerified = true,
+                credentialVersion = 1,
+                createdAt = now.minusSeconds(60),
+                updatedAt = now.minusSeconds(60),
+            ),
+        )
+        val contacts = IdentityContactService(accounts, Clock.fixed(now, ZoneOffset.UTC))
+
+        val updated = contacts.updateCustomerContact(account.id, " CUSTOMER@example.com ", "+251922222222")
+
+        assertEquals("customer@example.com", updated.email)
+        assertEquals("+251922222222", updated.phone)
+        assertFalse(updated.phoneVerified)
+        assertFailsWith<ContactEmailMismatchException> {
+            contacts.updateCustomerContact(account.id, "attacker@example.com", null)
+        }
+        assertEquals("customer@example.com", accounts.findById(account.id)?.email)
+        assertEquals("+251922222222", accounts.findById(account.id)?.phone)
     }
 }
 

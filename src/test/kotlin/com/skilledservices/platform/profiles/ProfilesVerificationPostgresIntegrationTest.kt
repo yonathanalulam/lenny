@@ -17,6 +17,7 @@ import com.skilledservices.platform.profiles.application.ProviderEligibilityServ
 import com.skilledservices.platform.profiles.domain.MarketplaceVerificationStatus
 import com.skilledservices.platform.profiles.domain.VerificationDecisionStore
 import org.hamcrest.Matchers.hasSize
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -72,14 +73,42 @@ class ProfilesVerificationPostgresIntegrationTest {
         val otherProvider = registerProvider()
         val admin = createAdminAccessToken()
 
+        markEmailVerified(customer)
+        markEmailVerified(otherCustomer)
+
+        mockMvc.get("/api/v1/customers/me/onboarding") { bearer(customer.accessToken) }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.role") { value("CUSTOMER") }
+                jsonPath("$.accountStatus") { value("ACTIVE") }
+                jsonPath("$.setupStatus") { value("IN_PROGRESS") }
+                jsonPath("$.setupComplete") { value(false) }
+                jsonPath("$.marketplaceEligible") { value(false) }
+                jsonPath("$.contactVerification.emailVerified") { value(true) }
+                jsonPath("$.contactVerification.phoneVerified") { value(false) }
+                jsonPath("$.requirements.fullNameProvided") { value(false) }
+                jsonPath("$.requirements.serviceAreaSelected") { value(false) }
+                jsonPath("$.requirements.preferredLanguageSelected") { value(false) }
+                jsonPath("$.requirements.requiredContactVerified") { value(true) }
+                jsonPath("$.verificationStatus") { value("PENDING") }
+                jsonPath("$.verificationSubmittedAt") { value(nullValue()) }
+            }
+
         mockMvc.put("/api/v1/customers/me/profile") {
             bearer(customer.accessToken)
             contentType = MediaType.APPLICATION_JSON
-            content = """{"serviceArea":"Bole and nearby areas","preferredLanguage":"Amharic"}"""
+            content = customerProfileJson(customer, "Sara Tadesse", "+2519${randomDigits()}", "en", "bole-medhanialem")
         }.andExpect {
             status { isOk() }
             jsonPath("$.setupComplete") { value(true) }
-            jsonPath("$.profilePhotoAvailable") { value(false) }
+            jsonPath("$.fullName") { value("Sara Tadesse") }
+            jsonPath("$.email") { value(customer.account.email) }
+            jsonPath("$.emailVerified") { value(true) }
+            jsonPath("$.phoneVerified") { value(false) }
+            jsonPath("$.serviceAreaId") { value("bole-medhanialem") }
+            jsonPath("$.serviceAreaName") { value("Bole / Medhanialem") }
+            jsonPath("$.preferredLanguage") { value("en") }
+            jsonPath("$.profilePhotoUrl") { value(nullValue()) }
         }
 
         mockMvc.get("/api/v1/customers/me/profile") { bearer(otherCustomer.accessToken) }
@@ -87,9 +116,28 @@ class ProfilesVerificationPostgresIntegrationTest {
         mockMvc.put("/api/v1/customers/me/profile") {
             bearer(otherCustomer.accessToken)
             contentType = MediaType.APPLICATION_JSON
-            content = """{"serviceArea":"Kazanchis","preferredLanguage":"English"}"""
+            content = customerProfileJson(otherCustomer, "Other Customer", null, "en", "kazanchis")
         }.andExpect { status { isOk() } }
-        assertEquals("Bole and nearby areas", profileService.getCustomer(customer.account.id).serviceArea)
+        assertEquals("Bole / Medhanialem", profileService.getCustomer(customer.account.id).profile.serviceAreaName)
+
+        mockMvc.get("/api/v1/customers/me/profile") { bearer(customer.accessToken) }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.accountId") { value(customer.account.id.toString()) }
+                jsonPath("$.fullName") { value("Sara Tadesse") }
+                jsonPath("$.serviceAreaId") { value("bole-medhanialem") }
+                jsonPath("$.createdAt") { exists() }
+                jsonPath("$.updatedAt") { exists() }
+            }
+
+        mockMvc.put("/api/v1/customers/me/profile") {
+            bearer(customer.accessToken)
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"fullName":"Sara Tadesse","email":"different@example.com","phone":null,"preferredLanguage":"en","serviceAreaId":"bole-medhanialem"}"""
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.code") { value("identity.contact_email_mismatch") }
+        }
 
         mockMvc.put("/api/v1/providers/me/profile") {
             bearer(provider.accessToken)
@@ -229,6 +277,9 @@ class ProfilesVerificationPostgresIntegrationTest {
                 jsonPath("$.verificationStatus") { value(MarketplaceVerificationStatus.APPROVED.name) }
                 jsonPath("$.marketplaceEligible") { value(true) }
                 jsonPath("$.setupComplete") { value(true) }
+                jsonPath("$.setupStatus") { value("COMPLETE") }
+                jsonPath("$.contactVerification.emailVerified") { value(true) }
+                jsonPath("$.contactVerification.phoneVerified") { value(false) }
             }
         mockMvc.get("/api/v1/providers/me/onboarding") { bearer(provider.accessToken) }
             .andExpect {
@@ -257,6 +308,11 @@ class ProfilesVerificationPostgresIntegrationTest {
     private fun registerProvider(): AuthResult = authService.registerServiceProvider(
         RegistrationCommand("provider-${UUID.randomUUID()}@example.com", null, "correct-horse-battery-staple"), context,
     )
+
+    private fun markEmailVerified(result: AuthResult) {
+        val account = accountStore.findById(result.account.id)!!
+        accountStore.save(account.copy(emailVerified = true, updatedAt = clock.instant()))
+    }
 
     private fun createAdminAccessToken(): String {
         val now = clock.instant()
@@ -327,6 +383,16 @@ class ProfilesVerificationPostgresIntegrationTest {
 
     private fun providerProfileJson(description: String, skill: String = "Plumbing") =
         """{"professionalDescription":"$description","skills":["$skill"],"experienceYears":5,"serviceArea":"Addis Ababa","pricingSummary":"Pricing depends on scope","portfolioSummary":"Residential plumbing work"}"""
+
+    private fun customerProfileJson(
+        customer: AuthResult,
+        fullName: String,
+        phone: String?,
+        preferredLanguage: String,
+        serviceAreaId: String,
+    ) = """{"fullName":"$fullName","email":"${customer.account.email}","phone":${phone?.let { "\"$it\"" } ?: "null"},"preferredLanguage":"$preferredLanguage","serviceAreaId":"$serviceAreaId"}"""
+
+    private fun randomDigits() = UUID.randomUUID().toString().filter(Char::isDigit).padEnd(8, '7').take(8)
 
     private fun org.springframework.test.web.servlet.MockHttpServletRequestDsl.bearer(token: String) {
         header("Authorization", "Bearer $token")

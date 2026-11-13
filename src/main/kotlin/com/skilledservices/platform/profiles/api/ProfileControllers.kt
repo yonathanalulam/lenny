@@ -34,7 +34,10 @@ class CustomerProfileController(
     fun getProfile(@AuthenticationPrincipal jwt: Jwt) = profileService.getCustomer(jwt.accountId()).toResponse()
 
     @PutMapping("/profile")
-    @Operation(summary = "Create or replace the authenticated customer's profile")
+    @Operation(
+        summary = "Create or replace the authenticated customer's profile",
+        description = "Email must match the authenticated account. A new or changed phone remains unverified.",
+    )
     fun putProfile(@AuthenticationPrincipal jwt: Jwt, @Valid @RequestBody request: CustomerProfileRequest) =
         profileService.putCustomer(jwt.accountId(), request.toCommand()).toResponse()
 

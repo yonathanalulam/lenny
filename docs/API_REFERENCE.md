@@ -17,8 +17,8 @@ Protected calls use `Authorization: Bearer <access-token>`. `C` means `CUSTOMER`
 | Method and path | Auth | Purpose and principal fields | Important state/errors |
 | --- | --- | --- | --- |
 | `GET /api/v1/health` | Public | Process liveness; returns `status`, `service`, `timestamp`. | Does not prove dependency readiness. Actuator also exposes `/actuator/health`. |
-| `POST /api/v1/auth/register/customers` | Public | Register native account from `email`, optional `phone`, `password`; returns access/refresh tokens and `user`. | Assigns only `CUSTOMER`; 400 validation, 409 `identity.contact_already_registered`. |
-| `POST /api/v1/auth/register/service-providers` | Public | Same registration contract; creates provider identity and returns session. | Assigns only `SERVICE_PROVIDER`; 400 validation, 409 duplicate contact. |
+| `POST /api/v1/auth/register/customers` | Public | Register native account from `email` and `password`; returns access/refresh tokens and `user`. | Assigns only `CUSTOMER`; 400 validation, 409 `identity.contact_already_registered`. |
+| `POST /api/v1/auth/register/service-providers` | Public | Register from `email`, optional E.164 `phone`, and `password`; returns session. | Assigns only `SERVICE_PROVIDER`; 400 validation, 409 duplicate contact. |
 | `POST /api/v1/auth/login` | Public | `email`, `password`; returns token pair and account. | Account must be active; 401 invalid credentials/account inactive. |
 | `POST /api/v1/auth/google` | Public | Google `idToken`, optional first-registration `requestedRole` and `phone`; returns the platform token pair. | Validates Google issuer/signature/expiry/audience/email; existing-email collision requires explicit linking. |
 | `POST /api/v1/auth/refresh` | Refresh token | `refreshToken`; atomically rotates session and returns a new token pair. | Token is one-use; 401 `identity.invalid_refresh_token` for expired/revoked/reused tokens. |
@@ -58,9 +58,9 @@ Blocking restricts new messages, Direct Invitations, and Proposals. It never can
 
 | Method and path | Auth | Purpose and principal fields | Important state/errors |
 | --- | --- | --- | --- |
-| `GET /api/v1/customers/me/profile` | C | Return the caller's private profile. | 404 when no profile exists. |
-| `PUT /api/v1/customers/me/profile` | C | Create/replace profile using `serviceArea` and `preferredLanguage`. | Caller must own `CUSTOMER`; validation errors are 400. |
-| `GET /api/v1/customers/me/onboarding` | C | Return profile, contact-verification, marketplace-verification and eligibility flags. | This is the canonical readiness projection. |
+| `GET /api/v1/customers/me/profile` | C | Return identity contact state plus `fullName`, service-area ID/name, language, photo URL, setup state and timestamps. | 404 when no profile exists. |
+| `PUT /api/v1/customers/me/profile` | C | Create/replace using `fullName`, current account `email`, optional E.164 `phone`, `preferredLanguage`, and `serviceAreaId`. | Email cannot be changed here; a changed phone becomes unverified. Caller must own `CUSTOMER`. |
+| `GET /api/v1/customers/me/onboarding` | C | Return `setupStatus`, nested contact verification and setup requirements, actual marketplace-verification state and eligibility. | This is the canonical readiness projection. `verificationStatus` remains `PENDING`, `APPROVED`, or `REJECTED`; setup completion does not bypass approval. |
 
 ## Provider profile, onboarding and availability
 
